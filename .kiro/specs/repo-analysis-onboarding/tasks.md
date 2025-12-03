@@ -38,7 +38,9 @@
   - **Property 3: Invalid URL rejection**
   - **Validates: Requirements 1.3**
 
-- [ ]* 2.4 Write property test for retry mechanism
+- [x]* 2.4 Write property test for retry mechanism
+
+
   - **Property 4: Retry with exponential backoff**
   - **Validates: Requirements 2.4**
 
