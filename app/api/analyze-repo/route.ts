@@ -29,23 +29,29 @@ export async function POST(request: NextRequest) {
 
     // Check cache (30 days)
     const repoRef = adminDb.collection('repositories').doc(repoId);
-    const cachedRepo = await repoRef.get();
+    
+    try {
+      const cachedRepo = await repoRef.get();
 
-    if (cachedRepo.exists) {
-      const data = cachedRepo.data();
-      const analyzedAt = data?.analyzed_at?.toDate();
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      if (cachedRepo.exists) {
+        const data = cachedRepo.data();
+        const analyzedAt = data?.analyzed_at?.toDate();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      if (analyzedAt && analyzedAt > thirtyDaysAgo) {
-        // Return cached result
-        return NextResponse.json({
-          success: true,
-          repoId,
-          message: 'Using cached analysis',
-          cached: true,
-        });
+        if (analyzedAt && analyzedAt > thirtyDaysAgo) {
+          // Return cached result
+          return NextResponse.json({
+            success: true,
+            repoId,
+            message: 'Using cached analysis',
+            cached: true,
+          });
+        }
       }
+    } catch (cacheError) {
+      // If cache check fails, continue with fresh analysis
+      console.log('[API] Cache check failed, proceeding with fresh analysis:', cacheError);
     }
 
     // Create analyzer with progress callback
