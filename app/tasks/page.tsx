@@ -1,336 +1,342 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import GhostVisualization from '@/components/GhostVisualization';
+import GhostMentorChat from '@/components/GhostMentorChat';
+import Link from 'next/link';
 
 interface Task {
-  id: number;
+  id: string;
   title: string;
-  completed: boolean;
-  content: {
-    description: string[];
-    codeSnippets?: { language: string; code: string }[];
-    commands?: string[];
-  };
+  description: string;
+  instructions: string[];
+  code_snippets?: string[];
+  tips?: string[];
+  warnings?: string[];
+  difficulty: 'easy' | 'medium' | 'hard';
+  estimated_time: string;
+  dependencies?: string[];
 }
 
-export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: 1,
-      title: "Clone repo",
-      completed: true,
-      content: {
-        description: [
-          "First, you need to clone the repository to your local machine. This creates a local copy of the project.",
-          "Use the following command in your terminal:",
-        ],
-        commands: ["git clone https://github.com/username/studywise-ai.git"],
-        description2: ["Navigate into the project directory:"],
-        commands2: ["cd studywise-ai"],
-      },
-    },
-    {
-      id: 2,
-      title: "Install dependencies",
-      completed: true,
-      content: {
-        description: [
-          "Install all the required packages and dependencies for the project.",
-          "This project uses npm as the package manager. Run:",
-        ],
-        commands: ["npm install"],
-        description2: [
-          "This will read the package.json file and install all dependencies listed there.",
-        ],
-      },
-    },
-    {
-      id: 3,
-      title: "Create .env file",
-      completed: false,
-      content: {
-        description: [
-          "To create a `.env` file, start by navigating to the root directory of the project in your terminal. This file is crucial for storing environment variables securely.",
-          "You can create the file using the following command:",
-        ],
-        commands: ["touch .env"],
-        description2: [
-          "Once created, open the `.env` file in your text editor and add the necessary key-value pairs. For this project, you will need to add your `DATABASE_URL` and `GITHUB_API_KEY`.",
-        ],
-        codeSnippets: [
-          {
-            language: "bash",
-            code: `DATABASE_URL=postgresql://user:password@localhost:5432/dbname
-GITHUB_API_KEY=your_github_api_key_here
-NODE_ENV=development`,
-          },
-        ],
-      },
-    },
-    {
-      id: 4,
-      title: "Run migrations",
-      completed: false,
-      content: {
-        description: [
-          "Database migrations help set up your database schema. This project uses Prisma for database management.",
-          "Run the following command to apply all pending migrations:",
-        ],
-        commands: ["npx prisma migrate dev"],
-        description2: [
-          "This will create the necessary tables and relationships in your database based on the schema defined in the project.",
-        ],
-      },
-    },
-    {
-      id: 5,
-      title: "Initialize server",
-      completed: false,
-      content: {
-        description: [
-          "Finally, start the development server to run the application locally.",
-          "Use this command to start the server:",
-        ],
-        commands: ["npm run dev"],
-        description2: [
-          "The server will start on http://localhost:3000. Open this URL in your browser to see the application running.",
-        ],
-      },
-    },
-  ]);
+interface Section {
+  id: string;
+  title: string;
+  description: string;
+  tasks: Task[];
+}
 
-  const [selectedTaskId, setSelectedTaskId] = useState(3);
-  const [chatOpen, setChatOpen] = useState(false);
+interface Roadmap {
+  repository_name: string;
+  total_tasks: number;
+  estimated_completion_time: string;
+  sections: Section[];
+}
 
-  const selectedTask = tasks.find((t) => t.id === selectedTaskId);
-  const completedCount = tasks.filter((t) => t.completed).length;
-  const progressPercentage = Math.round((completedCount / tasks.length) * 100);
+interface Progress {
+  completed_tasks: string[];
+  overall_progress_percentage: number;
+  ghost_solidness: number;
+}
 
-  const handleMarkComplete = () => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === selectedTaskId ? { ...task, completed: true } : task
-      )
-    );
+export default function Tasks() {
+  const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
+  const [progress, setProgress] = useState<Progress | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [showCelebration, setShowCelebration] = useState(false);
+  const searchParams = useSearchParams();
+  const repoId = searchParams.get('repoId');
 
-    // Auto-select next incomplete task
-    const nextTask = tasks.find((t) => t.id > selectedTaskId && !t.completed);
-    if (nextTask) {
-      setTimeout(() => setSelectedTaskId(nextTask.id), 300);
+  useEffect(() => {
+    if (!repoId) {
+      setError('Repository ID is required');
+      setLoading(false);
+      return;
+    }
+
+    fetchRoadmap();
+  }, [repoId]);
+
+  const fetchRoadmap = async () => {
+    try {
+      const response = await fetch(`/api/get-roadmap?repoId=${repoId}&userId=demo-user`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch roadmap');
+      }
+
+      setRoadmap(data.roadmap);
+      setProgress(data.progress);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const toggleTaskExpansion = (taskId: string) => {
+    const newExpanded = new Set(expandedTasks);
+    if (newExpanded.has(taskId)) {
+      newExpanded.delete(taskId);
+    } else {
+      newExpanded.add(taskId);
+    }
+    setExpandedTasks(newExpanded);
+  };
+
+  const handleTaskToggle = async (taskId: string, completed: boolean) => {
+    try {
+      const response = await fetch('/api/update-task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: 'demo-user',
+          repoId,
+          taskId,
+          completed,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update task');
+      }
+
+      // Update local progress state
+      if (progress) {
+        const newCompletedTasks = completed
+          ? [...progress.completed_tasks, taskId]
+          : progress.completed_tasks.filter(id => id !== taskId);
+
+        setProgress({
+          ...progress,
+          completed_tasks: newCompletedTasks,
+          overall_progress_percentage: data.newProgress,
+          ghost_solidness: data.newProgress,
+        });
+      }
+
+      // Show celebration if milestone reached
+      if (data.celebrationTriggered) {
+        setShowCelebration(true);
+        setTimeout(() => setShowCelebration(false), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to update task:', err);
+    }
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy': return 'bg-green-100 text-green-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'hard': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading roadmap...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.href = '/dashboard'}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!roadmap) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-600">No roadmap found</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col p-4 sm:p-6 lg:p-8">
-      <header className="w-full max-w-7xl mx-auto mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 text-text-muted-dark hover:text-primary transition-colors"
-          >
-            <span className="material-symbols-outlined">arrow_back</span>
-            <span>Return to Dashboard</span>
-          </Link>
-          <Link
-            href="/profile"
-            className="flex items-center gap-2 text-text-muted-dark hover:text-primary transition-colors"
-          >
-            <span className="material-symbols-outlined">account_circle</span>
-            <span>Profile</span>
-          </Link>
-        </div>
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header with Ghost */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <div className="flex justify-between items-start mb-4">
+            <div className="flex-1">
+              <Link href="/dashboard" className="text-purple-600 hover:text-purple-700 text-sm mb-2 inline-block">
+                ← Back to Dashboard
+              </Link>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                {roadmap.repository_name}
+              </h1>
+              <p className="text-gray-600">
+                {roadmap.total_tasks} tasks • {roadmap.estimated_completion_time}
+              </p>
+            </div>
 
-        <div className="text-center mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-text-dark">studywise-ai</h1>
-          <p className="text-text-muted-dark text-sm">Onboarding Checklist</p>
-        </div>
+            {/* Ghost Visualization */}
+            <div className="flex-shrink-0 ml-8">
+              <GhostVisualization
+                progress={progress?.overall_progress_percentage || 0}
+                showCelebration={showCelebration}
+              />
+            </div>
+          </div>
 
-        <div className="w-full max-w-2xl mx-auto">
-          <div className="flex items-center gap-4 w-full">
-            <span className="text-sm font-medium text-primary">{progressPercentage}%</span>
-            <div className="w-full bg-surface-dark rounded-full h-1.5">
+          {/* Progress Bar */}
+          <div className="mt-6">
+            <div className="flex justify-between text-sm text-gray-600 mb-2">
+              <span>Overall Progress</span>
+              <span>{progress?.overall_progress_percentage || 0}% Complete</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
               <div
-                className="progress-bar-fill h-1.5 rounded-full transition-all duration-500"
-                style={{ width: `${progressPercentage}%` }}
-              ></div>
+                className="bg-purple-600 h-3 rounded-full transition-all duration-300"
+                style={{ width: `${progress?.overall_progress_percentage || 0}%` }}
+              />
             </div>
           </div>
         </div>
-      </header>
 
-      <main className="flex-grow w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-8 items-start pb-24">
-        {/* Left Panel - Task List */}
-        <div className="lg:col-span-2 bg-surface-dark border border-border-dark rounded-lg p-6 space-y-3">
-          {tasks.map((task) => (
-            <label
-              key={task.id}
-              htmlFor={`task${task.id}`}
-              className={`flex items-center gap-3 text-lg p-3 rounded-md transition-all duration-300 cursor-pointer ${
-                task.completed
-                  ? "text-text-muted-dark"
-                  : "text-text-dark"
-              } ${
-                selectedTaskId === task.id
-                  ? "bg-primary/10 ring-1 ring-primary/50"
-                  : "hover:bg-border-dark/30"
-              }`}
-            >
-              <input
-                checked={selectedTaskId === task.id}
-                onChange={() => setSelectedTaskId(task.id)}
-                className="h-5 w-5 rounded-sm border-2 border-border-dark bg-transparent focus:ring-primary focus:ring-offset-surface-dark text-primary sr-only"
-                id={`task${task.id}`}
-                name="onboardingTask"
-                type="radio"
-              />
-              <span
-                className={`material-symbols-outlined !text-2xl ${
-                  task.completed ? "text-primary" : "text-text-muted-dark"
-                }`}
-              >
-                {task.completed ? "check_circle" : "radio_button_unchecked"}
-              </span>
-              <span className="flex-grow">{task.title}</span>
-            </label>
+        {/* Sections */}
+        <div className="space-y-8">
+          {roadmap.sections.map((section) => (
+            <div key={section.id} className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                {section.title}
+              </h2>
+              <p className="text-gray-600 mb-6">{section.description}</p>
+
+              {/* Tasks */}
+              <div className="space-y-4">
+                {section.tasks.map((task) => {
+                  const isCompleted = progress?.completed_tasks.includes(task.id) || false;
+                  const isExpanded = expandedTasks.has(task.id);
+
+                  return (
+                    <div
+                      key={task.id}
+                      className={`border rounded-lg p-4 transition-all duration-200 ${
+                        isCompleted ? 'bg-green-50 border-green-200' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <input
+                          type="checkbox"
+                          checked={isCompleted}
+                          onChange={(e) => handleTaskToggle(task.id, e.target.checked)}
+                          className="mt-1 h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded cursor-pointer"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h3
+                              className={`font-medium cursor-pointer hover:text-purple-600 transition-colors ${
+                                isCompleted ? 'text-green-800 line-through' : 'text-gray-900'
+                              }`}
+                              onClick={() => toggleTaskExpansion(task.id)}
+                            >
+                              {task.title}
+                            </h3>
+                            <div className="flex items-center space-x-2">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(task.difficulty)}`}>
+                                {task.difficulty}
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                {task.estimated_time}
+                              </span>
+                              <button
+                                onClick={() => toggleTaskExpansion(task.id)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                {isExpanded ? '▼' : '▶'}
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-gray-600 text-sm mt-1">{task.description}</p>
+
+                          {/* Expanded Content */}
+                          {isExpanded && (
+                            <div className="mt-4 space-y-4 border-t pt-4">
+                              {/* Instructions */}
+                              <div>
+                                <h4 className="font-medium text-gray-900 mb-2">📋 Instructions:</h4>
+                                <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+                                  {task.instructions.map((instruction, index) => (
+                                    <li key={index}>{instruction}</li>
+                                  ))}
+                                </ol>
+                              </div>
+
+                              {/* Code Snippets */}
+                              {task.code_snippets && task.code_snippets.length > 0 && (
+                                <div>
+                                  <h4 className="font-medium text-gray-900 mb-2">💻 Code Examples:</h4>
+                                  {task.code_snippets.map((snippet, index) => (
+                                    <pre key={index} className="bg-gray-100 p-3 rounded text-sm overflow-x-auto border">
+                                      <code>{snippet}</code>
+                                    </pre>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Tips */}
+                              {task.tips && task.tips.length > 0 && (
+                                <div>
+                                  <h4 className="font-medium text-gray-900 mb-2">💡 Tips:</h4>
+                                  <ul className="list-disc list-inside space-y-1 text-sm text-blue-700 bg-blue-50 p-3 rounded">
+                                    {task.tips.map((tip, index) => (
+                                      <li key={index}>{tip}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Warnings */}
+                              {task.warnings && task.warnings.length > 0 && (
+                                <div>
+                                  <h4 className="font-medium text-gray-900 mb-2">⚠️ Warnings:</h4>
+                                  <ul className="list-disc list-inside space-y-1 text-sm text-red-700 bg-red-50 p-3 rounded">
+                                    {task.warnings.map((warning, index) => (
+                                      <li key={index}>{warning}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </div>
+      </div>
 
-        {/* Right Panel - Task Content */}
-        <div className="lg:col-span-3 bg-surface-dark border border-border-dark rounded-lg p-6 flex flex-col min-h-[500px] max-h-[600px]">
-          <div className="flex-grow overflow-y-auto space-y-4 text-text-muted-dark text-base pr-2">
-            <h2 className="text-xl font-bold text-text-dark mb-4 sticky top-0 bg-surface-dark pb-2">
-              {selectedTask?.title}
-            </h2>
-
-            {selectedTask?.content.description.map((para, idx) => (
-              <p key={idx}>{para}</p>
-            ))}
-
-            {selectedTask?.content.commands?.map((cmd, idx) => (
-              <pre
-                key={idx}
-                className="bg-background-dark p-4 rounded-md text-sm text-primary border border-border-dark font-mono"
-              >
-                <code>{cmd}</code>
-              </pre>
-            ))}
-
-            {(selectedTask?.content as any).description2?.map((para: string, idx: number) => (
-              <p key={`desc2-${idx}`}>{para}</p>
-            ))}
-
-            {(selectedTask?.content as any).commands2?.map((cmd: string, idx: number) => (
-              <pre
-                key={`cmd2-${idx}`}
-                className="bg-background-dark p-4 rounded-md text-sm text-primary border border-border-dark font-mono"
-              >
-                <code>{cmd}</code>
-              </pre>
-            ))}
-
-            {selectedTask?.content.codeSnippets?.map((snippet, idx) => (
-              <pre
-                key={idx}
-                className="bg-background-dark p-4 rounded-md text-sm text-text-dark border border-border-dark font-mono overflow-x-auto"
-              >
-                <code>{snippet.code}</code>
-              </pre>
-            ))}
-          </div>
-
-          <div className="flex justify-end mt-6 pt-4 border-t border-border-dark">
-            <button
-              onClick={handleMarkComplete}
-              disabled={selectedTask?.completed}
-              className={`px-6 py-2 font-bold rounded-md transition-all duration-300 flex items-center gap-2 ${
-                selectedTask?.completed
-                  ? "bg-border-dark text-text-muted-dark cursor-not-allowed"
-                  : "bg-primary text-background-dark hover:shadow-neon focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface-dark"
-              }`}
-            >
-              {selectedTask?.completed ? "Completed" : "Mark as Complete"}
-              <span className="material-symbols-outlined">
-                {selectedTask?.completed ? "check" : "arrow_forward"}
-              </span>
-            </button>
-          </div>
-        </div>
-      </main>
-
-      {/* Chat Button & Overlay */}
-      <footer className="fixed bottom-0 left-0 right-0 flex justify-center pointer-events-none z-50">
-        <div className="w-full max-w-3xl pointer-events-auto">
-          {!chatOpen && (
-            <div className="flex justify-center transition-all duration-300">
-              <button
-                onClick={() => setChatOpen(true)}
-                className="mb-4 flex items-center gap-2 px-5 py-2.5 bg-surface-dark border border-border-dark rounded-lg text-text-dark font-semibold hover:border-primary hover:text-primary hover:shadow-neon-sm transition-all shadow-lg"
-              >
-                <span className="material-symbols-outlined text-primary text-xl">psychology</span>
-                Ask Ghost Mentor AI
-              </button>
-            </div>
-          )}
-
-          {chatOpen && (
-            <div className="h-[70vh] max-h-[600px] bg-surface-dark/95 backdrop-blur-xl border-t-2 border-x-2 border-primary rounded-t-lg shadow-neon flex flex-col transition-all duration-300">
-              <header className="flex justify-between items-center p-4 border-b border-border-dark flex-shrink-0">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">psychology</span>
-                  Ghost Mentor AI
-                </h2>
-                <button
-                  onClick={() => setChatOpen(false)}
-                  className="p-1 rounded-full text-text-muted-dark hover:bg-border-dark hover:text-text-dark transition-colors"
-                >
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              </header>
-
-              <div className="flex-grow p-4 sm:p-6 overflow-y-auto space-y-6">
-                <div className="flex justify-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary/20 flex-shrink-0 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-primary text-lg">
-                      psychology
-                    </span>
-                  </div>
-                  <div className="bg-border-dark/50 p-3 rounded-lg max-w-md">
-                    <p className="text-text-dark">
-                      Hello! I see you're working on the `{selectedTask?.title}` task. Do you have
-                      any questions?
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3">
-                  <div className="bg-primary/90 text-background-dark p-3 rounded-lg max-w-md">
-                    <p>Yes, I need some help with this step.</p>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-border-dark flex-shrink-0 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-text-muted-dark text-lg">
-                      person
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 border-t border-border-dark">
-                <div className="relative">
-                  <input
-                    className="w-full bg-background-dark border border-border-dark rounded-md py-2.5 pl-4 pr-12 focus:ring-2 focus:ring-primary focus:border-primary text-text-dark placeholder:text-text-muted-dark"
-                    placeholder="Ask a question..."
-                    type="text"
-                  />
-                  <button className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md text-primary hover:bg-primary/20 transition-colors">
-                    <span className="material-symbols-outlined">send</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </footer>
+      {/* Ghost Mentor Chat */}
+      {repoId && <GhostMentorChat repoId={repoId} userId="demo-user" />}
     </div>
   );
 }

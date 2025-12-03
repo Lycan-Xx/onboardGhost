@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { adminDb } from '@/lib/firebase/admin';
 import { createAnalyzer } from '@/lib/pipeline';
 import { validateGitHubUrl } from '@/lib/utils/url';
 import { handleAPIError } from '@/lib/utils/errors';

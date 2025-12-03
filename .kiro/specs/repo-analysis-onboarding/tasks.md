@@ -255,7 +255,8 @@
   - **Property 45: Cache expiration and re-analysis**
   - **Validates: Requirements 20.3**
 
-- [ ] 14. Create Dashboard page UI
+- [x] 14. Create Dashboard page UI
+
   - Build repository URL input form with validation
   - Add GitHub OAuth button (optional)
   - Implement form submission handler
@@ -270,7 +271,8 @@
   - Test error message display
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 15. Create Loading page UI with real-time progress
+- [x] 15. Create Loading page UI with real-time progress
+
   - Build progress log display component
   - Implement Firebase real-time listener for analysis_progress
   - Display current step name and status
@@ -286,7 +288,8 @@
   - Test redirect on completion
   - _Requirements: 3.2, 3.3_
 
-- [ ] 16. Create Tasks page UI with roadmap display
+- [x] 16. Create Tasks page UI with roadmap display
+
   - Build roadmap section and task list components
   - Implement task expansion/collapse functionality
   - Add task completion checkboxes
@@ -301,7 +304,8 @@
   - Test difficulty badge display
   - _Requirements: 12.1_
 
-- [ ] 17. Implement progress tracking functionality
+- [x] 17. Implement progress tracking functionality
+
   - Create function to mark tasks as complete/incomplete
   - Implement progress calculation (completed / total * 100)
   - Update Firebase user_progress on task toggle
@@ -334,7 +338,8 @@
   - **Property 34: Milestone celebrations**
   - **Validates: Requirements 14.5**
 
-- [ ] 18. Create Ghost visualization component
+- [x] 18. Create Ghost visualization component
+
   - Build SVG ghost graphic with opacity control
   - Implement opacity calculation based on progress percentage
   - Add smooth transition animations
@@ -351,7 +356,10 @@
   - Test celebration animation triggers
   - _Requirements: 15.2, 15.3_
 
-- [ ] 19. Implement Ghost Mentor chat interface
+- [x] 19. Implement Ghost Mentor chat interface
+
+
+
   - Build chat UI with message history display
   - Create message input form
   - Implement user/assistant message distinction
@@ -370,7 +378,8 @@
   - Test typing indicator
   - _Requirements: 16.2, 16.3_
 
-- [ ] 20. Implement Ghost Mentor chat backend
+- [x] 20. Implement Ghost Mentor chat backend
+
   - Create /api/chat endpoint
   - Implement rate limiting (10 messages per hour per user)
   - Fetch Gemini file URIs from Firebase
@@ -398,12 +407,15 @@
 
 - [x] 21. Implement API route for repository analysis
 
+
   - Create /api/analyze-repo endpoint
   - Validate request parameters
   - Check for cached analysis results
   - Trigger analysis pipeline
   - Return repository ID
   - Handle errors and return appropriate status codes
+
+
   - _Requirements: 1.5, 20.1, 20.2, 20.3, 20.4_
 
 - [ ]* 21.1 Write unit tests for analyze-repo endpoint
@@ -412,9 +424,12 @@
   - Test error handling
   - _Requirements: 1.5, 20.2_
 
+
+
 - [ ] 22. Implement API route for progress updates
   - Create /api/update-task endpoint
   - Validate request parameters
+
   - Update Firebase user_progress
   - Calculate new progress percentage
   - Check for milestone celebrations
@@ -424,10 +439,14 @@
 - [ ]* 22.1 Write unit tests for update-task endpoint
   - Test task completion update
   - Test progress calculation
+
+
+
   - Test milestone detection
   - _Requirements: 14.1, 14.2, 14.5_
 
-- [ ] 23. Implement API route for roadmap retrieval
+- [x] 23. Implement API route for roadmap retrieval
+
   - Create /api/get-roadmap endpoint
   - Fetch roadmap from Firebase by repository ID
   - Handle missing roadmap case
@@ -439,7 +458,10 @@
   - Test missing roadmap error
   - _Requirements: 12.1_
 
-- [ ] 24. Implement GitHub OAuth flow
+- [x] 24. Implement GitHub OAuth flow
+
+
+
   - Create /api/auth/github endpoint for OAuth callback
   - Implement OAuth token exchange
   - Store encrypted token in Firebase
