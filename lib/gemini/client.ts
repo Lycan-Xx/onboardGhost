@@ -93,52 +93,99 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
     setup_instructions?: string;
     security_issues?: any[];
   }): Promise<any> {
-    const prompt = `You are an expert developer creating an onboarding roadmap for a new team member.
+    const envVarsList = analysisData.env_vars.map(v => `${v.name}=${v.example_value || 'your_value_here'}`).join('\n');
+    
+    const prompt = `You are an expert senior developer creating a DETAILED, COMPREHENSIVE onboarding roadmap for a new team member joining this project.
 
-Repository Analysis:
-- Tech Stack: ${JSON.stringify(analysisData.tech_stack)}
-- Database: ${JSON.stringify(analysisData.database)}
-- Required Env Vars: ${analysisData.env_vars.length} variables
-- Project Purpose: ${analysisData.purpose.purpose}
+=== REPOSITORY ANALYSIS ===
+Tech Stack: ${JSON.stringify(analysisData.tech_stack, null, 2)}
+Database: ${JSON.stringify(analysisData.database, null, 2)}
+Project Purpose: ${analysisData.purpose.purpose}
+Features: ${analysisData.purpose.features.join(', ')}
+Environment Variables (${analysisData.env_vars.length} total):
+${envVarsList}
 
-${analysisData.setup_instructions ? `Setup Instructions from README:\n${analysisData.setup_instructions}` : ''}
+${analysisData.setup_instructions ? `Setup Instructions from README:\n${analysisData.setup_instructions}\n` : ''}
+${analysisData.security_issues && analysisData.security_issues.length > 0 ? `⚠️ SECURITY ISSUES FOUND: ${analysisData.security_issues.length} secrets detected - MUST be addressed in roadmap!\n` : ''}
 
-${analysisData.security_issues && analysisData.security_issues.length > 0 ? `Security Warnings:\n${analysisData.security_issues.length} issues found` : ''}
+=== YOUR TASK ===
+Generate a DETAILED onboarding roadmap with 4-6 sections and 4-8 tasks per section. Each task MUST include:
+1. Clear, actionable title
+2. Detailed description (2-3 sentences explaining WHY this task matters)
+3. Step-by-step instructions (array of 3-7 detailed steps)
+4. Code snippets (actual commands/code the user needs to run)
+5. Practical tips (2-4 helpful hints)
+6. Warnings (1-3 common pitfalls to avoid)
+7. Difficulty level (easy/medium/hard)
+8. Estimated time (e.g., "10 minutes", "30 minutes", "1 hour")
 
-Generate an onboarding roadmap in JSON format with this structure:
+=== EXAMPLE TASK (FOLLOW THIS LEVEL OF DETAIL) ===
 {
+  "id": "task-1",
+  "title": "Clone Repository and Install Dependencies",
+  "description": "Get a local copy of the codebase on your machine and install all required packages. This is the foundation for all development work.",
+  "instructions": [
+    "Open your terminal and navigate to your projects directory",
+    "Clone the repository using: git clone <repository-url>",
+    "Navigate into the project directory: cd <project-name>",
+    "Install dependencies using the package manager: npm install (or yarn install)",
+    "Verify installation by checking for node_modules folder"
+  ],
+  "code_snippets": [
+    "git clone https://github.com/username/repo-name.git",
+    "cd repo-name",
+    "npm install",
+    "npm list --depth=0"
+  ],
+  "tips": [
+    "Use 'npm ci' instead of 'npm install' for faster, more reliable installs in CI/CD",
+    "If you encounter permission errors, avoid using sudo - fix npm permissions instead",
+    "Check package.json to understand what dependencies are being installed"
+  ],
+  "warnings": [
+    "Don't commit node_modules to git - it's already in .gitignore",
+    "If npm install fails, try deleting node_modules and package-lock.json first"
+  ],
+  "difficulty": "easy",
+  "estimated_time": "5-10 minutes"
+}
+
+=== REQUIRED SECTIONS (in this order) ===
+1. "Environment Setup" - Install tools, clone repo, install dependencies, setup database
+2. "Configuration" - Environment variables, API keys, database connections
+3. "Running the Application" - Start dev server, verify it works, understand the stack
+4. "Understanding the Codebase" - Project structure, key files, architecture patterns
+5. "Making Your First Change" - Find a good first issue, make a change, test it
+6. "Advanced Topics" (optional) - Deployment, testing, debugging
+
+=== CRITICAL REQUIREMENTS ===
+- EVERY task MUST have 3-7 detailed instructions (not just 1-2 vague steps)
+- EVERY task MUST have actual code_snippets array with real commands/code
+- EVERY task MUST have 2-4 practical tips
+- EVERY task MUST have 1-3 warnings about common mistakes
+- Include specific file paths when relevant (e.g., "Edit src/config/database.js")
+- Include actual commands with proper syntax (e.g., "npm run dev", "docker-compose up")
+- For database tasks, include connection strings and migration commands
+- For env var tasks, show the actual .env file format with all variables
+- If security issues exist, create a HIGH PRIORITY task to remove them
+
+=== OUTPUT FORMAT ===
+Return ONLY valid JSON (no markdown, no code blocks, no explanations):
+{
+  "repository_name": "${analysisData.purpose.project_type}",
+  "total_tasks": <count>,
+  "estimated_completion_time": "4-6 hours",
   "sections": [
     {
       "id": "section-1",
       "title": "Environment Setup",
-      "goals": ["Get the app running locally"],
-      "tasks": [
-        {
-          "id": "task-1",
-          "title": "Install Node.js v18+",
-          "description": "Download and install Node.js from nodejs.org",
-          "instructions": ["Detailed step-by-step instructions here"],
-          "code_snippet": "node --version",
-          "difficulty": "easy",
-          "completion_criteria": "Running 'node --version' shows v18 or higher",
-          "tips": ["Use nvm for version management"],
-          "warnings": ["M1 Mac users may need Rosetta"]
-        }
-      ]
+      "description": "Get your development environment ready",
+      "tasks": [<detailed tasks here>]
     }
   ]
 }
 
-Requirements:
-- Structure sections logically: Setup → Architecture Understanding → First Contribution
-- Order tasks by dependency (can't run migrations before DB setup)
-- No time estimates - users progress at their own pace
-- Add tips and warnings from known issues
-- If security issues exist, prioritize fixing them early
-- Include difficulty levels (easy/medium/hard) for user guidance
-- Generate 3-5 sections with 3-7 tasks each
-
-Return ONLY valid JSON (no markdown, no code blocks).`;
+Generate the roadmap NOW with maximum detail and practical guidance:`;
 
     try {
       const result = await retryWithBackoff(

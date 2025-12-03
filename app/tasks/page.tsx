@@ -44,8 +44,9 @@ export default function Tasks() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const searchParams = useSearchParams();
   const repoId = searchParams.get('repoId');
 
@@ -70,21 +71,20 @@ export default function Tasks() {
 
       setRoadmap(data.roadmap);
       setProgress(data.progress);
+      
+      // Auto-select first incomplete task or first task
+      if (data.roadmap.sections.length > 0) {
+        const firstIncompleteTask = data.roadmap.sections
+          .flatMap((s: Section) => s.tasks)
+          .find((t: Task) => !data.progress.completed_tasks.includes(t.id));
+        
+        setSelectedTaskId(firstIncompleteTask?.id || data.roadmap.sections[0].tasks[0]?.id);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
-  };
-
-  const toggleTaskExpansion = (taskId: string) => {
-    const newExpanded = new Set(expandedTasks);
-    if (newExpanded.has(taskId)) {
-      newExpanded.delete(taskId);
-    } else {
-      newExpanded.add(taskId);
-    }
-    setExpandedTasks(newExpanded);
   };
 
   const handleTaskToggle = async (taskId: string, completed: boolean) => {
@@ -127,6 +127,16 @@ export default function Tasks() {
         setShowCelebration(true);
         setTimeout(() => setShowCelebration(false), 3000);
       }
+
+      // Auto-select next incomplete task if marking as complete
+      if (completed && roadmap) {
+        const allTasks = roadmap.sections.flatMap(s => s.tasks);
+        const currentIndex = allTasks.findIndex(t => t.id === taskId);
+        const nextTask = allTasks.slice(currentIndex + 1).find(t => !progress?.completed_tasks.includes(t.id));
+        if (nextTask) {
+          setTimeout(() => setSelectedTaskId(nextTask.id), 300);
+        }
+      }
     } catch (err) {
       console.error('Failed to update task:', err);
     }
@@ -140,6 +150,13 @@ export default function Tasks() {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Get selected task details
+  const selectedTask = roadmap?.sections
+    .flatMap(s => s.tasks)
+    .find(t => t.id === selectedTaskId);
+
+  const isTaskCompleted = (taskId: string) => progress?.completed_tasks.includes(taskId) || false;
 
   if (loading) {
     return (
@@ -177,25 +194,29 @@ export default function Tasks() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header with Ghost */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex-1">
-              <Link href="/dashboard" className="text-purple-600 hover:text-purple-700 text-sm mb-2 inline-block">
-                ← Back to Dashboard
-              </Link>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                {roadmap.repository_name}
-              </h1>
-              <p className="text-gray-600">
+    <div className="min-h-screen bg-gray-50 pb-24">
+      {/* Header */}
+      <div className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-between items-center mb-4">
+            <Link href="/dashboard" className="text-purple-600 hover:text-purple-700 text-sm flex items-center gap-1">
+              ← Back to Dashboard
+            </Link>
+            <Link href="/profile" className="text-gray-600 hover:text-gray-700">
+              <span className="text-2xl">👤</span>
+            </Link>
+          </div>
+
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">{roadmap.repository_name}</h1>
+              <p className="text-gray-600 text-sm">
                 {roadmap.total_tasks} tasks • {roadmap.estimated_completion_time}
               </p>
             </div>
 
             {/* Ghost Visualization */}
-            <div className="flex-shrink-0 ml-8">
+            <div className="flex-shrink-0">
               <GhostVisualization
                 progress={progress?.overall_progress_percentage || 0}
                 showCelebration={showCelebration}
@@ -204,143 +225,211 @@ export default function Tasks() {
           </div>
 
           {/* Progress Bar */}
-          <div className="mt-6">
+          <div className="mt-4">
             <div className="flex justify-between text-sm text-gray-600 mb-2">
               <span>Overall Progress</span>
               <span>{progress?.overall_progress_percentage || 0}% Complete</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
+            <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-purple-600 h-3 rounded-full transition-all duration-300"
+                className="bg-purple-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${progress?.overall_progress_percentage || 0}%` }}
               />
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Sections */}
-        <div className="space-y-8">
-          {roadmap.sections.map((section) => (
-            <div key={section.id} className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                {section.title}
-              </h2>
-              <p className="text-gray-600 mb-6">{section.description}</p>
+      {/* Two-Pane Layout */}
+      <div className="container mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Left Pane - Task Checklist */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-lg shadow-sm p-4 sticky top-[200px]">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Tasks Checklist</h2>
+              <div className="space-y-1 max-h-[calc(100vh-350px)] overflow-y-auto">
+                {roadmap.sections.map((section) => (
+                  <div key={section.id} className="mb-4">
+                    <h3 className="text-sm font-medium text-gray-500 mb-2 px-2">{section.title}</h3>
+                    {section.tasks.map((task) => {
+                      const isCompleted = isTaskCompleted(task.id);
+                      const isSelected = selectedTaskId === task.id;
 
-              {/* Tasks */}
-              <div className="space-y-4">
-                {section.tasks.map((task) => {
-                  const isCompleted = progress?.completed_tasks.includes(task.id) || false;
-                  const isExpanded = expandedTasks.has(task.id);
-
-                  return (
-                    <div
-                      key={task.id}
-                      className={`border rounded-lg p-4 transition-all duration-200 ${
-                        isCompleted ? 'bg-green-50 border-green-200' : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <input
-                          type="checkbox"
-                          checked={isCompleted}
-                          onChange={(e) => handleTaskToggle(task.id, e.target.checked)}
-                          className="mt-1 h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded cursor-pointer"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h3
-                              className={`font-medium cursor-pointer hover:text-purple-600 transition-colors ${
-                                isCompleted ? 'text-green-800 line-through' : 'text-gray-900'
-                              }`}
-                              onClick={() => toggleTaskExpansion(task.id)}
-                            >
+                      return (
+                        <button
+                          key={task.id}
+                          onClick={() => setSelectedTaskId(task.id)}
+                          className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
+                            isSelected
+                              ? 'bg-purple-50 border-2 border-purple-600'
+                              : 'hover:bg-gray-50 border-2 border-transparent'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isCompleted}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleTaskToggle(task.id, e.target.checked);
+                            }}
+                            className="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded cursor-pointer"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium ${isCompleted ? 'line-through text-gray-500' : 'text-gray-900'}`}>
                               {task.title}
-                            </h3>
-                            <div className="flex items-center space-x-2">
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(task.difficulty)}`}>
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getDifficultyColor(task.difficulty)}`}>
                                 {task.difficulty}
                               </span>
-                              <span className="text-sm text-gray-500">
-                                {task.estimated_time}
-                              </span>
-                              <button
-                                onClick={() => toggleTaskExpansion(task.id)}
-                                className="text-gray-400 hover:text-gray-600 transition-colors"
-                              >
-                                {isExpanded ? '▼' : '▶'}
-                              </button>
+                              {task.estimated_time && (
+                                <span className="text-xs text-gray-500">{task.estimated_time}</span>
+                              )}
                             </div>
                           </div>
-                          <p className="text-gray-600 text-sm mt-1">{task.description}</p>
-
-                          {/* Expanded Content */}
-                          {isExpanded && (
-                            <div className="mt-4 space-y-4 border-t pt-4">
-                              {/* Instructions */}
-                              <div>
-                                <h4 className="font-medium text-gray-900 mb-2">📋 Instructions:</h4>
-                                {Array.isArray(task.instructions) ? (
-                                  <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
-                                    {task.instructions.map((instruction, index) => (
-                                      <li key={index}>{instruction}</li>
-                                    ))}
-                                  </ol>
-                                ) : (
-                                  <p className="text-sm text-gray-700">{task.instructions}</p>
-                                )}
-                              </div>
-
-                              {/* Code Snippets */}
-                              {task.code_snippets && task.code_snippets.length > 0 && (
-                                <div>
-                                  <h4 className="font-medium text-gray-900 mb-2">💻 Code Examples:</h4>
-                                  {task.code_snippets.map((snippet, index) => (
-                                    <pre key={index} className="bg-gray-100 p-3 rounded text-sm overflow-x-auto border">
-                                      <code>{snippet}</code>
-                                    </pre>
-                                  ))}
-                                </div>
-                              )}
-
-                              {/* Tips */}
-                              {task.tips && task.tips.length > 0 && (
-                                <div>
-                                  <h4 className="font-medium text-gray-900 mb-2">💡 Tips:</h4>
-                                  <ul className="list-disc list-inside space-y-1 text-sm text-blue-700 bg-blue-50 p-3 rounded">
-                                    {task.tips.map((tip, index) => (
-                                      <li key={index}>{tip}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-
-                              {/* Warnings */}
-                              {task.warnings && task.warnings.length > 0 && (
-                                <div>
-                                  <h4 className="font-medium text-gray-900 mb-2">⚠️ Warnings:</h4>
-                                  <ul className="list-disc list-inside space-y-1 text-sm text-red-700 bg-red-50 p-3 rounded">
-                                    {task.warnings.map((warning, index) => (
-                                      <li key={index}>{warning}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          </div>
+
+          {/* Right Pane - Task Details */}
+          <div className="lg:col-span-3">
+            {selectedTask ? (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="mb-6">
+                  <div className="flex items-start justify-between mb-2">
+                    <h2 className="text-2xl font-bold text-gray-900">{selectedTask.title}</h2>
+                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${getDifficultyColor(selectedTask.difficulty)}`}>
+                      {selectedTask.difficulty}
+                    </span>
+                  </div>
+                  <p className="text-gray-600">{selectedTask.description}</p>
+                </div>
+
+                <div className="space-y-6 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
+                  {/* Instructions */}
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      📋 Instructions
+                    </h3>
+                    {Array.isArray(selectedTask.instructions) ? (
+                      <ol className="list-decimal list-inside space-y-2 text-gray-700">
+                        {selectedTask.instructions.map((instruction, index) => (
+                          <li key={index} className="pl-2">{instruction}</li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="text-gray-700">{selectedTask.instructions}</p>
+                    )}
+                  </div>
+
+                  {/* Code Snippets */}
+                  {selectedTask.code_snippets && selectedTask.code_snippets.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        💻 Code Examples
+                      </h3>
+                      {selectedTask.code_snippets.map((snippet, index) => (
+                        <pre key={index} className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm mb-3">
+                          <code>{snippet}</code>
+                        </pre>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tips */}
+                  {selectedTask.tips && selectedTask.tips.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        💡 Tips
+                      </h3>
+                      <ul className="list-disc list-inside space-y-2 text-blue-700 bg-blue-50 p-4 rounded-lg">
+                        {selectedTask.tips.map((tip, index) => (
+                          <li key={index} className="pl-2">{tip}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Warnings */}
+                  {selectedTask.warnings && selectedTask.warnings.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        ⚠️ Warnings
+                      </h3>
+                      <ul className="list-disc list-inside space-y-2 text-red-700 bg-red-50 p-4 rounded-lg">
+                        {selectedTask.warnings.map((warning, index) => (
+                          <li key={index} className="pl-2">{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mark Complete Button */}
+                <div className="mt-6 pt-6 border-t flex justify-end">
+                  <button
+                    onClick={() => handleTaskToggle(selectedTask.id, !isTaskCompleted(selectedTask.id))}
+                    className={`px-6 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                      isTaskCompleted(selectedTask.id)
+                        ? 'bg-gray-200 text-gray-600 cursor-default'
+                        : 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg hover:shadow-xl'
+                    }`}
+                  >
+                    {isTaskCompleted(selectedTask.id) ? (
+                      <>
+                        <span>✓</span>
+                        Completed
+                      </>
+                    ) : (
+                      <>
+                        Mark as Complete
+                        <span>→</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm p-6 text-center text-gray-500">
+                Select a task from the checklist to view details
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Ghost Mentor Chat */}
-      {repoId && <GhostMentorChat repoId={repoId} userId="demo-user" />}
+      {/* Ghost Mentor Chat - Fixed at bottom */}
+      {repoId && !chatOpen && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <button
+            onClick={() => setChatOpen(true)}
+            className="flex items-center gap-2 px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all"
+          >
+            <span className="text-xl">👻</span>
+            <span className="font-semibold">Ask Ghost Mentor</span>
+          </button>
+        </div>
+      )}
+
+      {/* Ghost Mentor Chat Component */}
+      {repoId && chatOpen && (
+        <div className="fixed bottom-0 right-0 w-full md:w-[500px] h-[600px] z-50">
+          <div className="relative h-full">
+            <button
+              onClick={() => setChatOpen(false)}
+              className="absolute -top-10 right-4 bg-white hover:bg-gray-100 text-gray-600 rounded-full p-2 shadow-lg transition-colors"
+            >
+              <span className="text-xl">✕</span>
+            </button>
+            <GhostMentorChat repoId={repoId} userId="demo-user" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
