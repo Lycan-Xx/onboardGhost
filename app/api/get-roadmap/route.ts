@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { adminDb } from '@/lib/firebase/admin';
 import { handleAPIError } from '@/lib/utils/errors';
 
 export async function GET(request: NextRequest) {
@@ -17,10 +16,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get roadmap
-    const roadmapRef = doc(db, 'roadmaps', repoId);
-    const roadmapDoc = await getDoc(roadmapRef);
+    const roadmapRef = adminDb.collection('roadmaps').doc(repoId);
+    const roadmapDoc = await roadmapRef.get();
 
-    if (!roadmapDoc.exists()) {
+    if (!roadmapDoc.exists) {
       return NextResponse.json(
         { error: 'Roadmap not found' },
         { status: 404 }
@@ -28,11 +27,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user progress
-    const progressRef = doc(db, `user_progress/${userId}/repos`, repoId);
-    const progressDoc = await getDoc(progressRef);
+    const progressRef = adminDb.collection('user_progress').doc(userId).collection('repos').doc(repoId);
+    const progressDoc = await progressRef.get();
 
     const roadmap = roadmapDoc.data();
-    const progress = progressDoc.exists() ? progressDoc.data() : {
+    const progress = progressDoc.exists ? progressDoc.data() : {
       completed_tasks: [],
       overall_progress_percentage: 0,
       ghost_solidness: 0,

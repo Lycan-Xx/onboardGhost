@@ -28,12 +28,12 @@ export async function POST(request: NextRequest) {
     const repoId = repoUrl.replace('https://github.com/', '').replace('/', '-');
 
     // Check cache (30 days)
-    const repoRef = doc(db, 'repositories', repoId);
-    const cachedRepo = await getDoc(repoRef);
+    const repoRef = adminDb.collection('repositories').doc(repoId);
+    const cachedRepo = await repoRef.get();
 
-    if (cachedRepo.exists()) {
+    if (cachedRepo.exists) {
       const data = cachedRepo.data();
-      const analyzedAt = data.analyzed_at?.toDate();
+      const analyzedAt = data?.analyzed_at?.toDate();
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
     // Create analyzer with progress callback
     const analyzer = createAnalyzer(githubToken, async (progress) => {
       // Store progress in Firestore for real-time updates
-      const progressRef = doc(db, 'analysis_progress', repoId);
-      await setDoc(progressRef, {
+      const progressRef = adminDb.collection('analysis_progress').doc(repoId);
+      await progressRef.set({
         current_step: progress.step,
         step_name: progress.stepName,
         step_status: progress.status,
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const analysis = await analyzer.analyze(repoUrl);
 
     // Store results in Firestore
-    await setDoc(repoRef, {
+    await repoRef.set({
       ...analysis.repository,
       tech_stack: analysis.tech_stack,
       database_requirements: analysis.database,
@@ -83,15 +83,15 @@ export async function POST(request: NextRequest) {
     });
 
     // Store roadmap
-    const roadmapRef = doc(db, 'roadmaps', repoId);
-    await setDoc(roadmapRef, {
+    const roadmapRef = adminDb.collection('roadmaps').doc(repoId);
+    await roadmapRef.set({
       ...analysis.roadmap,
       generated_at: new Date(),
     });
 
     // Initialize user progress
-    const progressRef = doc(db, `user_progress/${userId}/repos`, repoId);
-    await setDoc(progressRef, {
+    const progressRef = adminDb.collection('user_progress').doc(userId).collection('repos').doc(repoId);
+    await progressRef.set({
       user_id: userId,
       repo_id: repoId,
       completed_tasks: [],

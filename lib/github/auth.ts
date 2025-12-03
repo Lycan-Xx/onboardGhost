@@ -1,19 +1,22 @@
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { adminDb } from '@/lib/firebase/admin';
 
 /**
  * Retrieves and decrypts the GitHub OAuth token for a user
  */
 export async function getGitHubToken(userId: string): Promise<string | null> {
   try {
-    const tokenRef = doc(db, 'github_tokens', userId);
-    const tokenDoc = await getDoc(tokenRef);
+    const tokenRef = adminDb.collection('github_tokens').doc(userId);
+    const tokenDoc = await tokenRef.get();
 
-    if (!tokenDoc.exists()) {
+    if (!tokenDoc.exists) {
       return null;
     }
 
     const data = tokenDoc.data();
+    if (!data) {
+      return null;
+    }
+    
     const encryptedToken = data.encrypted_token;
 
     if (!encryptedToken) {

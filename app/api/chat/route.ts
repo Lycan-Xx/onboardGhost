@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc, addDoc, collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { adminDb } from '@/lib/firebase/admin';
 import { createGeminiClient } from '@/lib/gemini/client';
 import { handleAPIError } from '@/lib/utils/errors';
 
@@ -11,15 +10,13 @@ const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
 async function checkRateLimit(userId: string): Promise<{ allowed: boolean; remaining: number }> {
   const oneHourAgo = new Date(Date.now() - RATE_LIMIT_WINDOW);
   
-  const messagesRef = collection(db, 'chat_history');
-  const q = query(
-    messagesRef,
-    where('user_id', '==', userId),
-    where('timestamp', '>', Timestamp.fromDate(oneHourAgo)),
-    where('role', '==', 'user')
-  );
+  const messagesRef = adminDb.collection('chat_history');
+  const snapshot = await messagesRef
+    .where('user_id', '==', userId)
+    .where('timestamp', '>', oneHourAgo)
+    .where('role', '==', 'user')
+    .get();
   
-  const snapshot = await getDocs(q);
   const messageCount = snapshot.size;
   
   return {
@@ -54,10 +51,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch repository data to get Gemini file URIs
-    const repoRef = doc(db, 'repositories', repoId);
-    const repoDoc = await getDoc(repoRef);
+    const repoRef = adminDb.collection('repositories').doc(repoId);
+    const repoDoc = await repoRef.get();
 
-    if (!repoDoc.exists()) {
+    if (!repoDoc.exists) {
       return NextResponse.json(
         { error: 'Repository not found' },
         { status: 404 }
@@ -65,15 +62,22 @@ export async function POST(request: NextRequest) {
     }
 
     const repoData = repoDoc.data();
+    if (!repoData) {
+      return NextResponse.json(
+        { error: 'Repository data not found' },
+        { status: 404 }
+      );
+    }
+    
     const geminiFiles = repoData.gemini_files || [];
 
     // Save user message to chat history
-    const userMessageRef = await addDoc(collection(db, 'chat_history'), {
+    await adminDb.collection('chat_history').add({
       user_id: userId,
       repo_id: repoId,
       role: 'user',
       content: message,
-      timestamp: Timestamp.now()
+      timestamp: new Date()
     });
 
     // Prepare context for Gemini
@@ -111,13 +115,13 @@ User Question: ${message}`;
     }
 
     // Save assistant message to chat history
-    await addDoc(collection(db, 'chat_history'), {
+    await adminDb.collection('chat_history').add({
       user_id: userId,
       repo_id: repoId,
       role: 'assistant',
       content: assistantResponse,
       file_references: fileReferences,
-      timestamp: Timestamp.now()
+      timestamp: new Date()
     });
 
     return NextResponse.json({

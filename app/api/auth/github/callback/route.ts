@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { adminDb } from '@/lib/firebase/admin';
 import { handleAPIError } from '@/lib/utils/errors';
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
@@ -72,11 +71,11 @@ export async function GET(request: NextRequest) {
     const encryptedToken = Buffer.from(tokenData.access_token).toString('base64');
 
     // Store encrypted token in Firebase
-    const tokenRef = doc(db, 'github_tokens', stateData.userId);
-    await setDoc(tokenRef, {
+    const tokenRef = adminDb.collection('github_tokens').doc(stateData.userId);
+    await tokenRef.set({
       encrypted_token: encryptedToken,
       scope: tokenData.scope,
-      created_at: Timestamp.now(),
+      created_at: new Date(),
       expires_at: null, // GitHub tokens don't expire unless revoked
     });
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { adminDb } from '@/lib/firebase/admin';
 import { handleAPIError } from '@/lib/utils/errors';
 
 export async function POST(request: NextRequest) {
@@ -17,10 +16,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get current progress
-    const progressRef = doc(db, `user_progress/${userId}/repos`, repoId);
-    const progressDoc = await getDoc(progressRef);
+    const progressRef = adminDb.collection('user_progress').doc(userId).collection('repos').doc(repoId);
+    const progressDoc = await progressRef.get();
 
-    if (!progressDoc.exists()) {
+    if (!progressDoc.exists) {
       return NextResponse.json(
         { error: 'Progress not found' },
         { status: 404 }
@@ -28,6 +27,13 @@ export async function POST(request: NextRequest) {
     }
 
     const currentProgress = progressDoc.data();
+    if (!currentProgress) {
+      return NextResponse.json(
+        { error: 'Progress data not found' },
+        { status: 404 }
+      );
+    }
+    
     let completedTasks = currentProgress.completed_tasks || [];
 
     // Update completed tasks array
@@ -38,10 +44,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get roadmap to calculate total tasks
-    const roadmapRef = doc(db, 'roadmaps', repoId);
-    const roadmapDoc = await getDoc(roadmapRef);
+    const roadmapRef = adminDb.collection('roadmaps').doc(repoId);
+    const roadmapDoc = await roadmapRef.get();
 
-    if (!roadmapDoc.exists()) {
+    if (!roadmapDoc.exists) {
       return NextResponse.json(
         { error: 'Roadmap not found' },
         { status: 404 }
@@ -49,6 +55,13 @@ export async function POST(request: NextRequest) {
     }
 
     const roadmap = roadmapDoc.data();
+    if (!roadmap) {
+      return NextResponse.json(
+        { error: 'Roadmap data not found' },
+        { status: 404 }
+      );
+    }
+    
     const totalTasks = roadmap.total_tasks || 0;
 
     // Calculate new progress
@@ -59,7 +72,7 @@ export async function POST(request: NextRequest) {
                                   newProgress > currentProgress.overall_progress_percentage;
 
     // Update progress in Firebase
-    await updateDoc(progressRef, {
+    await progressRef.update({
       completed_tasks: completedTasks,
       overall_progress_percentage: newProgress,
       ghost_solidness: newProgress,
