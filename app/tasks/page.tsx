@@ -126,7 +126,7 @@ NODE_ENV=development`,
       <header className="w-full max-w-7xl mx-auto mb-8">
         <div className="flex justify-between items-center mb-6">
           <Link
-            href="/"
+            href="/dashboard"
             className="flex items-center gap-2 text-text-muted-dark hover:text-primary transition-colors"
           >
             <span className="material-symbols-outlined">arrow_back</span>
