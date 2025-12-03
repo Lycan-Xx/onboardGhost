@@ -220,7 +220,9 @@
   - **Property 26: Roadmap structure validation**
   - **Validates: Requirements 12.2, 12.3, 12.7**
 
-- [ ]* 12.2 Write property test for roadmap section ordering
+- [x]* 12.2 Write property test for roadmap section ordering
+
+
   - **Property 27: Roadmap section ordering**
   - **Validates: Requirements 12.4**
 
