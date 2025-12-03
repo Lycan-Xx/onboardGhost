@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Add License Headers to Pages",
+  "description": "Automatically adds license headers to newly created page component files",
+  "version": "1",
+  "when": {
+    "type": "fileCreated",
+    "patterns": [
+      "**/pages/**/*.tsx",
+      "**/pages/**/*.ts",
+      "**/pages/**/*.jsx",
+      "**/pages/**/*.js"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A new page component file has been created. Please add an appropriate license header to the top of this file. Include standard copyright information and license terms that match the project's licensing requirements."
+  }
+}

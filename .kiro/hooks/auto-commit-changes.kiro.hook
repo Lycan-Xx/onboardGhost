@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Auto Commit on Changes",
+  "description": "Automatically creates a detailed, natural language commit message after every major change or update to files in the project",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "**/*"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A file has been edited. Please review the changes made and create a git commit with a detailed, natural language commit message that clearly explains what was changed and why. The commit message should be explanatory and easy to understand for other developers."
+  }
+}

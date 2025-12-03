@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #ff00a0;
+  --color-background-light: #f0f2f5;
+  --color-background-dark: #0d0d0d;
+  --color-surface-light: #ffffff;
+  --color-surface-dark: #1a1a1a;
+  --color-border-light: #d1d5db;
+  --color-border-dark: #333333;
+  --color-text-light: #1f2937;
+  --color-text-dark: #e5e7eb;
+  --color-text-muted-light: #6b7280;
+  --color-text-muted-dark: #9ca3af;
+  
+  --font-display: var(--font-roboto-mono), monospace;
+  
+  --shadow-neon: 0 0 5px #ff00a0, 0 0 10px #ff00a0;
+  --shadow-neon-sm: 0 0 3px #ff00a0, 0 0 6px #ff00a0;
+}
+
+body {
+  font-family: var(--font-display);
+}
+
+.progress-bar-bg {
+  background-color: rgba(255, 0, 160, 0.1);
+}
+
+.progress-bar-fill {
+  background-color: #ff00a0;
+  box-shadow: 0 0 5px #ff00a0, 0 0 8px #ff00a0;
+}
