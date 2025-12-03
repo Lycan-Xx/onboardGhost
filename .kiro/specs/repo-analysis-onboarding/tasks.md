@@ -387,6 +387,7 @@
   - **Property 38: User message storage**
   - **Validates: Requirements 18.1**
 
+
 - [ ]* 20.3 Write property test for assistant message storage
   - **Property 39: Assistant message storage**
   - **Validates: Requirements 18.2**
@@ -395,7 +396,8 @@
   - **Property 40: Chat history chronological order**
   - **Validates: Requirements 18.3**
 
-- [ ] 21. Implement API route for repository analysis
+- [x] 21. Implement API route for repository analysis
+
   - Create /api/analyze-repo endpoint
   - Validate request parameters
   - Check for cached analysis results
