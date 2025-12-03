@@ -1,3 +1,86 @@
-OnboardGhost Analysis Workflow Explanation
+## OnboardGhost Analysis Workflow Explanation
 When a user submits a GitHub repository URL, OnboardGhost initiates a comprehensive multi-stage analysis workflow designed to extract every piece of information a new developer would need to get started. The process begins by cloning the repository through the GitHub API and immediately scanning for critical configuration files—we parse package.json, requirements.txt, Gemfile, or equivalent dependency manifests to identify the tech stack, detect the primary framework (React, Django, Rails, FastAPI, etc.), and extract version requirements that might cause compatibility issues. Simultaneously, we analyze the file structure to map out important directories like /src, /app, /migrations, and /docs, while locating essential configuration files such as .env.example, docker-compose.yml, and database schema definitions. The README and any CONTRIBUTING.md files are parsed using Gemini AI to extract installation instructions, understand the project's purpose (what problem it solves and how it works), and identify setup prerequisites like required Node.js versions, database types (PostgreSQL, MongoDB, MySQL), environment variables that need configuration, and external service dependencies (Stripe, AWS, SendGrid). We also scan GitHub Issues for common setup problems, check for hardcoded secrets or security vulnerabilities, and assess documentation quality to determine how much hand-holding the onboarding roadmap needs to provide.
 All of this extracted intelligence—tech stack details, file paths, setup instructions, known gotchas, dependency relationships, and project purpose—is then fed into two parallel outputs: first, Gemini generates a structured 3-day onboarding roadmap with prioritized tasks ordered by dependency chains (you can't run migrations before installing the database), complete with time estimates, difficulty ratings, code snippets, and contextual tips; second, every code file is chunked into semantic segments, converted into embeddings using HuggingFace's sentence transformers, and stored in Pinecone's vector database alongside rich metadata (file paths, function names, related concepts, common issues). This creates a searchable knowledge base that powers the Ghost Mentor chatbot—when users ask questions like "How does authentication work?" or "Where do I configure the database?", the system performs semantic search to retrieve the 3-5 most relevant code chunks and file references, injects them as context into a Gemini prompt, and generates accurate, codebase-specific answers with file paths and line numbers, effectively giving every user their own personal senior developer who has already read and understood the entire repository.
+
+
+
+
+
+
+
+
+---
+
+
+## Key Technical Decisions
+Why Gemini File Search over custom RAG?
+
+- No need for Pinecone/vector DB
+Automatic chunking & embeddings
+Seamless integration with Gemini chat
+Saves 3-4 days of development
+Why TruffleHog for security?
+
+- Purpose-built for secret detection
+99% accuracy vs ~60% with LLMs
+Runs in Docker (no installation)
+Why aggressive file filtering?
+
+- 5,000 files → 150-250 files (95% reduction)
+Reduces Gemini API costs by 95%
+Faster analysis (2-3 min vs 15+ min)
+
+
+
+
+
+
+ 
+ ---
+ 
+ 
+## Spec Complete: Repository Analysis & Onboarding
+Location: .kiro/specs/repo-analysis-onboarding/
+
+📋 What's Included:
+Requirements Document - 15 user stories with 75 EARS-compliant acceptance criteria covering:
+
+Repository input & validation
+GitHub OAuth integration
+8-step analysis pipeline
+Firebase backend
+Ghost Mentor chat
+Progress tracking & visualization
+Design Document - Complete technical design with:
+
+System architecture diagrams
+8-step pipeline flow
+Component interfaces & data models
+Firebase Firestore schema
+47 correctness properties for testing
+Error handling strategies
+Performance optimization plans
+Task List - 34 main tasks with 60+ subtasks including:
+
+Core implementation tasks (required)
+Property-based tests (optional - marked with *)
+Unit tests (optional - marked with *)
+Integration tests (optional)
+🚀 Next Steps:
+You can now start implementing! To begin:
+
+Open the tasks file: .kiro/specs/repo-analysis-onboarding/tasks.md
+Click "Start task" next to any task item to begin implementation
+Recommended starting point: Task 1 (Set up project infrastructure and Firebase configuration)
+The spec follows a logical implementation order:
+
+Tasks 1-2: Infrastructure & utilities
+Tasks 3-12: Analysis pipeline components
+Task 13: Pipeline orchestration
+Tasks 14-20: UI & chat features
+Tasks 21-28: API routes & security
+Tasks 29-34: Polish & testing
+Optional test tasks are marked with * so you can focus on building the MVP quickly while having comprehensive test coverage available when needed.
+
+
+
