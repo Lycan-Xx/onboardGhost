@@ -27,7 +27,7 @@ export class GeminiClient {
   ): Promise<ProjectPurpose> {
     const prompt = `Analyze this project and extract:
 1. Project Purpose (1-2 sentences): What problem does this solve?
-2. Core Features (3-5 bullet points): What can users do?
+2. Core Features (3-5 bullet points): What can users do?n
 3. Target Users: Who is this for?
 4. Project Type: (e.g., "REST API", "React Component Library", "CLI Tool", "Web Application")
 
