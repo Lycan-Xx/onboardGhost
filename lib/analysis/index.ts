@@ -3,3 +3,4 @@
  */
 
 export * from './file-filter';
+export * from './tech-stack';

@@ -80,7 +80,8 @@
   - **Property 9: Excluded extension filtering**
   - **Validates: Requirements 4.3**
 
-- [ ]* 4.3 Write property test for critical files inclusion
+- [-]* 4.3 Write property test for critical files inclusion
+
   - **Property 10: Critical files always included**
   - **Validates: Requirements 4.4**
 
@@ -89,6 +90,8 @@
   - **Validates: Requirements 4.5**
 
 - [ ] 5. Implement tech stack detection
+
+
   - Create function to detect JavaScript/TypeScript stack from package.json
   - Create function to detect Python stack from requirements.txt and pyproject.toml
   - Create function to detect Ruby stack from Gemfile
