@@ -14,7 +14,7 @@ export class GeminiClient {
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
     // Use gemini-1.5-pro-latest which is a generally available model
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+    this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
   }
 
   /**
@@ -117,7 +117,7 @@ Generate an onboarding roadmap in JSON format with this structure:
           "id": "task-1",
           "title": "Install Node.js v18+",
           "description": "Download and install Node.js from nodejs.org",
-          "instructions": "Detailed step-by-step instructions here",
+          "instructions": ["Detailed step-by-step instructions here"],
           "code_snippet": "node --version",
           "difficulty": "easy",
           "completion_criteria": "Running 'node --version' shows v18 or higher",
@@ -163,6 +163,17 @@ Return ONLY valid JSON (no markdown, no code blocks).`;
       // Validate structure
       if (!parsed.sections || !Array.isArray(parsed.sections)) {
         throw new Error('Invalid roadmap structure');
+      }
+
+      // Data correction: Ensure task.instructions is always an array
+      for (const section of parsed.sections) {
+        if (section.tasks && Array.isArray(section.tasks)) {
+          for (const task of section.tasks) {
+            if (task.instructions && typeof task.instructions === 'string') {
+              task.instructions = [task.instructions];
+            }
+          }
+        }
       }
 
       return parsed;
