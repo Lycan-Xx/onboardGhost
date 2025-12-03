@@ -10,7 +10,7 @@ interface Task {
   id: string;
   title: string;
   description: string;
-  instructions: string[];
+  instructions: string | string[];
   code_snippets?: string[];
   tips?: string[];
   warnings?: string[];
@@ -280,11 +280,15 @@ export default function Tasks() {
                               {/* Instructions */}
                               <div>
                                 <h4 className="font-medium text-gray-900 mb-2">📋 Instructions:</h4>
-                                <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
-                                  {task.instructions.map((instruction, index) => (
-                                    <li key={index}>{instruction}</li>
-                                  ))}
-                                </ol>
+                                {Array.isArray(task.instructions) ? (
+                                  <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+                                    {task.instructions.map((instruction, index) => (
+                                      <li key={index}>{instruction}</li>
+                                    ))}
+                                  </ol>
+                                ) : (
+                                  <p className="text-sm text-gray-700">{task.instructions}</p>
+                                )}
                               </div>
 
                               {/* Code Snippets */}

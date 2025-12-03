@@ -14,7 +14,7 @@ export class GeminiClient {
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
     // Use gemini-1.5-pro-latest which is a generally available model
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
+    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
   }
 
   /**
