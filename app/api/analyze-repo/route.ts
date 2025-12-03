@@ -58,16 +58,22 @@ export async function POST(request: NextRequest) {
     const analyzer = createAnalyzer(githubToken, async (progress) => {
       // Store progress in Firestore for real-time updates
       const progressRef = adminDb.collection('analysis_progress').doc(repoId);
+      const logEntry: any = {
+        timestamp: new Date(),
+        step: progress.step,
+        message: progress.message,
+      };
+      
+      // Only add details if it's defined
+      if (progress.details !== undefined) {
+        logEntry.details = progress.details;
+      }
+      
       await progressRef.set({
         current_step: progress.step,
         step_name: progress.stepName,
         step_status: progress.status,
-        logs: [{
-          timestamp: new Date(),
-          step: progress.step,
-          message: progress.message,
-          details: progress.details,
-        }],
+        logs: [logEntry],
         updated_at: new Date(),
       }, { merge: true });
     });

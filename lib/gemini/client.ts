@@ -13,7 +13,8 @@ export class GeminiClient {
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    // Use gemini-pro instead of gemini-1.5-pro for v1beta API
+    this.model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
   }
 
   /**
