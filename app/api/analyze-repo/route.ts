@@ -4,6 +4,30 @@ import { createAnalyzer } from '@/lib/pipeline';
 import { validateGitHubUrl } from '@/lib/utils/url';
 import { handleAPIError } from '@/lib/utils/errors';
 
+// Helper function to remove undefined values from objects
+function removeUndefined(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => removeUndefined(item)).filter(item => item !== undefined);
+  }
+  
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key in obj) {
+      const value = removeUndefined(obj[key]);
+      if (value !== undefined) {
+        cleaned[key] = value;
+      }
+    }
+    return cleaned;
+  }
+  
+  return obj;
+}
+
 export async function POST(request: NextRequest) {
   const requestId = Math.random().toString(36).substring(7);
   console.log(`\n${'#'.repeat(80)}`);
@@ -109,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     // Store results in Firestore
     console.log(`[API ${requestId}] 💾 Storing results in Firestore...`);
-    await repoRef.set({
+    const repoData = removeUndefined({
       ...analysis.repository,
       tech_stack: analysis.tech_stack,
       database_requirements: analysis.database,
@@ -120,16 +144,18 @@ export async function POST(request: NextRequest) {
       analysis_duration: analysis.analysis_metadata.analysis_duration_seconds,
       analyzed_at: new Date(),
     });
+    await repoRef.set(repoData);
 
     // Store roadmap
     const roadmapRef = adminDb.collection('roadmaps').doc(repoId);
     console.log(`[API ${requestId}] Storing roadmap with ${analysis.roadmap.sections?.length || 0} sections`);
     console.log(`[API ${requestId}] Total tasks: ${analysis.roadmap.total_tasks}`);
     
-    await roadmapRef.set({
+    const roadmapData = removeUndefined({
       ...analysis.roadmap,
       generated_at: new Date(),
     });
+    await roadmapRef.set(roadmapData);
 
     // Initialize user progress
     const progressRef = adminDb.collection('user_progress').doc(userId).collection('repos').doc(repoId);

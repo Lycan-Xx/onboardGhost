@@ -139,21 +139,109 @@ ${sectionGuidance}
 === PROJECT-SPECIFIC EXAMPLE TASK ===
 ${exampleTask}
 
-=== OUTPUT STRUCTURE ===
-Return ONLY valid JSON (no markdown, no code blocks, no preamble):
+=== REQUIRED OUTPUT STRUCTURE ===
+Return ONLY valid JSON (no markdown, no code blocks, no preamble).
+
+EACH TASK MUST HAVE THIS EXACT STRUCTURE:
+{
+  "id": "task-1",
+  "title": "Install Node.js v18+",
+  "description": {
+    "summary": "Brief 1-2 sentence overview",
+    "why_needed": "Why THIS project needs this",
+    "learning_goal": "What you'll learn"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "action": "Download",
+      "details": "Visit nodejs.org and download LTS version",
+      "os_specific": {
+        "mac": "Download .pkg installer",
+        "windows": "Download .msi installer", 
+        "linux": "Use apt or yum"
+      }
+    }
+  ],
+  "commands": [
+    {
+      "command": "node --version",
+      "description": "Check Node.js version",
+      "expected_output": "v18.x.x or higher",
+      "os": "all"
+    }
+  ],
+  "code_blocks": [
+    {
+      "type": "file_content",
+      "file_path": ".env",
+      "language": "bash",
+      "content": "DATABASE_URL=postgresql://...",
+      "explanation": "Database connection string"
+    }
+  ],
+  "references": [
+    {
+      "text": "Node.js Documentation",
+      "url": "https://nodejs.org/docs",
+      "type": "documentation",
+      "relevance": "Official installation guide"
+    }
+  ],
+  "tips": [
+    {
+      "text": "Use nvm to manage Node versions",
+      "type": "pro_tip",
+      "emphasis": ["nvm"]
+    }
+  ],
+  "warnings": [
+    {
+      "text": "Don't use sudo for npm packages",
+      "severity": "important",
+      "os_specific": true,
+      "emphasis": ["sudo"]
+    }
+  ],
+  "verification": {
+    "how_to_verify": "Run node --version",
+    "expected_result": "Should show v18.x.x",
+    "troubleshooting": [
+      {
+        "problem": "Command not found",
+        "solution": "Restart terminal",
+        "command": null
+      }
+    ]
+  },
+  "difficulty": "beginner",
+  "estimated_time": "10 minutes",
+  "depends_on": []
+}
+
+FULL ROADMAP STRUCTURE:
 {
   "repository_name": "${analysisData.repository_metadata?.name || 'Unknown Project'}",
-  "total_tasks": <count all tasks across all sections>,
+  "total_tasks": <count>,
   "estimated_completion_time": "2-4 hours",
   "sections": [
     {
       "id": "section-1",
       "title": "Understanding ${analysisData.repository_metadata?.name || 'the Project'}",
-      "description": "Learn what this ${analysisData.purpose?.project_type || 'project'} does before setup",
-      "tasks": [<task objects>]
+      "description": "Learn what this ${analysisData.purpose?.project_type || 'project'} does",
+      "tasks": [<tasks with structure above>]
     }
   ]
-}`;
+}
+
+CRITICAL RULES:
+- EVERY task MUST have description as an OBJECT with summary, why_needed, learning_goal
+- EVERY task MUST have steps array (not instructions string)
+- EVERY task MUST have commands as array of OBJECTS (not strings)
+- Include code_blocks for .env files, config files, etc.
+- Include verification section for EVERY task
+- NO comments in code blocks - only clean code
+- Use "beginner", "intermediate", or "advanced" for difficulty`;
 
     try {
       const result = await retryWithBackoff(
@@ -338,8 +426,24 @@ ${sections.map((s, i) => `${i + 1}. ${s}`).join('\n')}
       "os": "all"
     }
   ],
+  "code_blocks": [],
+  "references": [],
+  "tips": [
+    {
+      "text": "Use XAMPP on Windows for easy setup",
+      "type": "beginner_friendly",
+      "emphasis": ["XAMPP"]
+    }
+  ],
+  "warnings": [],
+  "verification": {
+    "how_to_verify": "Run php --version and composer --version",
+    "expected_result": "Both should show version numbers",
+    "troubleshooting": []
+  },
   "difficulty": "beginner",
-  "estimated_time": "15-20 minutes"
+  "estimated_time": "15-20 minutes",
+  "depends_on": []
 }`;
     }
 

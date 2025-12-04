@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import GhostVisualization from '@/components/GhostVisualization';
 import GhostMentorChat from '@/components/GhostMentorChat';
 import Link from 'next/link';
 import { 
@@ -317,13 +316,6 @@ export default function Tasks() {
               </p>
             </div>
 
-            {/* Ghost Visualization */}
-            <div className="flex-shrink-0 ml-6">
-              <GhostVisualization
-                progress={progress?.overall_progress_percentage || 0}
-                showCelebration={showCelebration}
-              />
-            </div>
           </div>
 
           {/* Progress Bar */}
