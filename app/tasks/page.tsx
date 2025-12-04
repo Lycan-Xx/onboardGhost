@@ -12,7 +12,7 @@ interface Task {
   description: string;
   instructions: string | string[];
   commands?: string[];
-  code_snippets?: string[];
+  code_snippets?: (string | { file?: string; language?: string; code: string })[];
   tips?: string[];
   warnings?: string[];
   difficulty: 'easy' | 'medium' | 'hard';
@@ -351,12 +351,34 @@ export default function Tasks() {
                       <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                         💻 Code to Write
                       </h3>
-                      <div className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm font-mono">
-                        {selectedTask.code_snippets.map((snippet, index) => (
-                          <pre key={index} className={index > 0 ? 'mt-4 pt-4 border-t border-gray-700' : ''}>
-                            <code>{snippet}</code>
-                          </pre>
-                        ))}
+                      <div className="space-y-3">
+                        {selectedTask.code_snippets.map((snippet, index) => {
+                          // Handle both string and object formats
+                          if (typeof snippet === 'string') {
+                            return (
+                              <div key={index} className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
+                                <pre className="text-sm font-mono">
+                                  <code>{snippet}</code>
+                                </pre>
+                              </div>
+                            );
+                          } else if (snippet && typeof snippet === 'object') {
+                            // Handle object format: {file, language, code}
+                            return (
+                              <div key={index} className="bg-gray-900 text-gray-100 rounded-lg overflow-hidden">
+                                {snippet.file && (
+                                  <div className="bg-gray-800 px-4 py-2 text-xs text-gray-400 border-b border-gray-700">
+                                    📄 {snippet.file}
+                                  </div>
+                                )}
+                                <pre className="p-4 text-sm font-mono overflow-x-auto">
+                                  <code>{snippet.code || snippet}</code>
+                                </pre>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })}
                       </div>
                     </div>
                   )}

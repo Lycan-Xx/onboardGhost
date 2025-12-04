@@ -120,13 +120,19 @@ ${analysisData.security_issues && analysisData.security_issues.length > 0 ? `⚠
 Each task MUST include:
 - title: Clear, actionable
 - description: 2-3 sentences explaining WHAT and WHY
-- instructions: Array of 4-8 detailed steps with explanations
-- commands: Array of CLI commands to run (git, npm, docker, etc.)
-- code_snippets: Array of code/config to write in files (.env, config files, etc.)
+- instructions: Array of 4-8 detailed steps with OS-specific guidance where applicable
+- commands: Array of CLI commands (include OS-specific variants if different)
+- code_snippets: Array of strings OR objects with {file, language, code} for file content
 - tips: 2-4 helpful learning hints
-- warnings: 1-3 common mistakes to avoid
+- warnings: 1-3 common mistakes to avoid (include OS-specific warnings)
 - difficulty: easy/medium/hard
 - estimated_time: e.g., "10 minutes"
+
+IMPORTANT - OS-Specific Instructions:
+- For installation steps, provide instructions for Mac, Windows, and Linux where they differ
+- Format: "On Mac: ..., On Windows: ..., On Linux: ..."
+- For commands that differ by OS, include all variants
+- Example: "Mac/Linux: npm install, Windows: npm install (same command)"
 
 === EXAMPLE TASK ===
 {
@@ -134,78 +140,88 @@ Each task MUST include:
   "title": "Install Node.js v18+ and Verify",
   "description": "Node.js is the JavaScript runtime that powers this application. Version 18+ is required for compatibility. This sets up the foundation for running the project.",
   "instructions": [
-    "Visit nodejs.org and download the LTS version for your OS",
-    "Run the installer and follow the wizard (accept defaults)",
-    "Open a NEW terminal window to load Node.js into PATH",
-    "Verify Node.js by running: node --version",
-    "Verify npm by running: npm --version",
-    "You should see v18.x.x or higher"
+    "Visit nodejs.org and download the LTS version",
+    "Mac: Download the .pkg installer and run it. Windows: Download the .msi installer and run it. Linux: Use your package manager (apt, yum, dnf) or download from nodejs.org",
+    "Follow the installation wizard and accept default settings",
+    "Open a NEW terminal window (important: this loads Node.js into your PATH)",
+    "Verify Node.js installation by running the version command",
+    "Verify npm (package manager) is also installed",
+    "You should see version 18.x.x or higher for Node.js"
   ],
   "commands": [
     "node --version",
-    "npm --version"
+    "npm --version",
+    "# Linux package manager install:",
+    "# Ubuntu/Debian: sudo apt install nodejs npm",
+    "# Fedora: sudo dnf install nodejs npm"
   ],
   "code_snippets": [],
   "tips": [
-    "Use nvm (Node Version Manager) to switch between Node versions easily",
-    "LTS version is more stable than 'Current' - always choose LTS",
-    "Check your version first - you might already have it installed"
+    "Use nvm (Node Version Manager) to easily switch between Node versions - works on Mac/Linux/Windows",
+    "LTS version is more stable than 'Current' - always choose LTS for production work",
+    "Check your version first with 'node --version' - you might already have it installed",
+    "On Windows, you may need to run terminal as Administrator for global npm packages"
   ],
   "warnings": [
-    "Don't use sudo for npm packages - causes permission issues",
-    "Windows: Restart computer after install for PATH changes",
-    "M1/M2 Mac: Download ARM64 version, not x64"
+    "Mac/Linux: Don't use sudo for npm packages - causes permission issues. Fix npm permissions instead",
+    "Windows: Restart your computer after installation for PATH changes to take effect",
+    "M1/M2 Mac users: Download the ARM64 version, not the x64 version for better performance"
   ],
   "difficulty": "easy",
   "estimated_time": "10 minutes"
 }
 
-=== REQUIRED SECTIONS (EXACT ORDER) ===
-1. "Understanding the Project" - What it does, tech stack, architecture
+=== REQUIRED SECTIONS (EXACT ORDER - SKIP IF NOT APPLICABLE) ===
+1. "Understanding the Project" - ALWAYS INCLUDE
    - Overview of project purpose and features
    - Tech stack explanation (what each tool does)
    - High-level architecture (how components connect)
    
-2. "Environment Setup" - Install required tools
-   - Install Node.js/Python/Ruby (with version)
-   - Install Docker (if needed)
-   - Install database tools (if needed)
+2. "Environment Setup" - ALWAYS INCLUDE
+   - Install Node.js/Python/Ruby (with version) - include Mac/Windows/Linux instructions
+   - Install Docker (ONLY if docker-compose.yml or Dockerfile detected)
+   - Install database tools (ONLY if database detected)
    - Verify all installations
    
-3. "Getting the Code" - Clone and install dependencies
-   - Clone repository with git
+3. "Getting the Code" - ALWAYS INCLUDE
+   - Clone repository with git (Mac/Windows/Linux)
    - Install project dependencies
-   - Understand dependency files (package.json, etc.)
+   - Understand dependency files (package.json, requirements.txt, etc.)
    
-4. "Database Setup" (if database detected) - Setup database
-   - Install database (PostgreSQL/MySQL/MongoDB)
+4. "Database Setup" - ONLY if database detected (${analysisData.database.length > 0 ? 'INCLUDE THIS' : 'SKIP THIS'})
+   - Install database (PostgreSQL/MySQL/MongoDB) with OS-specific instructions
    - Create database
    - Run migrations
    - Seed test data (if available)
    
-5. "Configuration" - Environment variables and config
+5. "Configuration" - ONLY if env vars exist (${analysisData.env_vars.length > 0 ? 'INCLUDE THIS' : 'SKIP THIS'})
    - Create .env file with ALL ${analysisData.env_vars.length} variables
    - Explain what each variable does
    - Get API keys (if needed)
-   - Configure database connection
+   - Configure database connection (if database exists)
    
-6. "Running the Application" - Start and verify
-   - Start the development server
+6. "Running the Application" - ALWAYS INCLUDE
+   - Start the development server (include OS-specific notes if needed)
    - Access application in browser
    - Verify all features work
    - Understand the dev workflow
 
+CRITICAL: Only include sections that are relevant to THIS project. If no database is detected, skip "Database Setup". If no env vars, skip "Configuration".
+
 === CRITICAL REQUIREMENTS ===
 - START with "Understanding the Project" - context FIRST
+- SKIP sections that don't apply (no database? skip Database Setup)
 - Focus on LOCAL SETUP only (no deployment/CI/CD)
-- 4-8 detailed instructions per task (not 1-2 vague steps)
+- 4-8 detailed instructions per task with OS-specific guidance
+- Include Mac, Windows, and Linux instructions where they differ
 - Separate "commands" (CLI) from "code_snippets" (file content)
+- For code_snippets: Use strings for simple code, or objects like {"file": ".env", "language": "bash", "code": "DATABASE_URL=..."} for file content
 - For .env: show COMPLETE file with all ${analysisData.env_vars.length} variables in code_snippets
 - Include verification steps (how to know it worked)
 - Explain WHY each step is needed (educational)
 - Use beginner-friendly language
 - Include expected output for commands
-- Add troubleshooting tips
+- Add OS-specific troubleshooting tips
 
 === OUTPUT FORMAT ===
 Return ONLY valid JSON (no markdown, no code blocks):
