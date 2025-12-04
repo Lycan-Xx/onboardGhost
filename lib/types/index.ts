@@ -247,3 +247,6 @@ export interface ChatInterfaceProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
 }
+
+// Enhanced roadmap types
+export * from './roadmap';

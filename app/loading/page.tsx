@@ -33,32 +33,59 @@ export default function Loading() {
       return;
     }
 
-    // Listen to real-time progress updates
-    const progressRef = doc(db, 'analysis_progress', repoId);
-    const unsubscribe = onSnapshot(
-      progressRef,
-      (doc) => {
-        if (doc.exists()) {
-          const data = doc.data() as AnalysisProgress;
-          setProgress(data);
-
-          // Check if analysis is complete
-          if (data.step_status === 'completed' && data.current_step === 8) {
-            setTimeout(() => {
-              router.push(`/tasks?repoId=${repoId}`);
-            }, 2000);
-          } else if (data.step_status === 'failed') {
-            setError('Analysis failed. Please try again.');
+    // Check if roadmap already exists (cached analysis)
+    const checkExistingRoadmap = async () => {
+      try {
+        const response = await fetch(`/api/get-roadmap?repoId=${repoId}&userId=demo-user`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.roadmap && data.roadmap.sections) {
+            console.log('[Loading] Roadmap already exists, redirecting to tasks...');
+            router.push(`/tasks?repoId=${repoId}`);
+            return true;
           }
         }
-      },
-      (error) => {
-        console.error('Error listening to progress:', error);
-        setError('Failed to track analysis progress');
+      } catch (error) {
+        console.log('[Loading] No existing roadmap, waiting for analysis...');
       }
-    );
+      return false;
+    };
 
-    return () => unsubscribe();
+    // Check immediately for cached results
+    checkExistingRoadmap().then((exists) => {
+      if (exists) return; // Already redirected
+
+      // Listen to real-time progress updates
+      const progressRef = doc(db, 'analysis_progress', repoId);
+      const unsubscribe = onSnapshot(
+        progressRef,
+        (doc) => {
+          if (doc.exists()) {
+            const data = doc.data() as AnalysisProgress;
+            setProgress(data);
+
+            // Check if analysis is complete
+            if (data.step_status === 'completed' && data.current_step === 8) {
+              setTimeout(() => {
+                router.push(`/tasks?repoId=${repoId}`);
+              }, 2000);
+            } else if (data.step_status === 'failed') {
+              setError('Analysis failed. Please try again.');
+            }
+          } else {
+            // No progress document - might be cached, check again
+            setTimeout(() => checkExistingRoadmap(), 3000);
+          }
+        },
+        (error) => {
+          console.error('Error listening to progress:', error);
+          // Try checking for existing roadmap as fallback
+          checkExistingRoadmap();
+        }
+      );
+
+      return () => unsubscribe();
+    });
   }, [repoId, router]);
 
   const getProgressPercentage = () => {

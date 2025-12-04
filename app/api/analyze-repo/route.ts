@@ -5,12 +5,22 @@ import { validateGitHubUrl } from '@/lib/utils/url';
 import { handleAPIError } from '@/lib/utils/errors';
 
 export async function POST(request: NextRequest) {
+  const requestId = Math.random().toString(36).substring(7);
+  console.log(`\n${'#'.repeat(80)}`);
+  console.log(`📥 NEW ANALYSIS REQUEST [${requestId}]`);
+  console.log(`${'#'.repeat(80)}\n`);
+  
   try {
     const body = await request.json();
     const { repoUrl, userId, githubToken } = body;
+    
+    console.log(`[API ${requestId}] Repository URL: ${repoUrl}`);
+    console.log(`[API ${requestId}] User ID: ${userId}`);
+    console.log(`[API ${requestId}] Has GitHub Token: ${!!githubToken}\n`);
 
     // Validate inputs
     if (!repoUrl || !validateGitHubUrl(repoUrl)) {
+      console.log(`[API ${requestId}] ❌ Invalid URL format\n`);
       return NextResponse.json(
         { error: 'Invalid GitHub repository URL' },
         { status: 400 }
@@ -26,8 +36,10 @@ export async function POST(request: NextRequest) {
 
     // Generate repo ID from URL
     const repoId = repoUrl.replace('https://github.com/', '').replace('/', '-');
+    console.log(`[API ${requestId}] Repository ID: ${repoId}`);
 
     // Check cache (30 days)
+    console.log(`[API ${requestId}] 🔍 Checking cache...`);
     const repoRef = adminDb.collection('repositories').doc(repoId);
     
     try {
@@ -41,20 +53,26 @@ export async function POST(request: NextRequest) {
 
         if (analyzedAt && analyzedAt > thirtyDaysAgo) {
           // Return cached result
+          console.log(`[API ${requestId}] ✅ Cache HIT - Using cached analysis from ${analyzedAt.toISOString()}\n`);
           return NextResponse.json({
             success: true,
             repoId,
             message: 'Using cached analysis',
             cached: true,
           });
+        } else {
+          console.log(`[API ${requestId}] ⚠️  Cache EXPIRED - Re-analyzing`);
         }
+      } else {
+        console.log(`[API ${requestId}] ℹ️  Cache MISS - First time analysis`);
       }
     } catch (cacheError) {
       // If cache check fails, continue with fresh analysis
-      console.log('[API] Cache check failed, proceeding with fresh analysis:', cacheError);
+      console.log(`[API ${requestId}] ⚠️  Cache check failed, proceeding with fresh analysis:`, cacheError);
     }
 
     // Create analyzer with progress callback
+    console.log(`[API ${requestId}] 🚀 Starting fresh analysis...\n`);
     const analyzer = createAnalyzer(githubToken, async (progress) => {
       // Store progress in Firestore for real-time updates
       const progressRef = adminDb.collection('analysis_progress').doc(repoId);
@@ -82,6 +100,7 @@ export async function POST(request: NextRequest) {
     const analysis = await analyzer.analyze(repoUrl);
 
     // Store results in Firestore
+    console.log(`[API ${requestId}] 💾 Storing results in Firestore...`);
     await repoRef.set({
       ...analysis.repository,
       tech_stack: analysis.tech_stack,
@@ -113,6 +132,9 @@ export async function POST(request: NextRequest) {
       last_activity: new Date(),
     });
 
+    console.log(`\n[API ${requestId}] ✅ Analysis completed successfully!`);
+    console.log(`${'#'.repeat(80)}\n`);
+    
     return NextResponse.json({
       success: true,
       repoId,
@@ -120,6 +142,9 @@ export async function POST(request: NextRequest) {
       cached: false,
     });
   } catch (error) {
+    console.log(`\n[API ${requestId}] ❌ Analysis failed:`, error);
+    console.log(`${'#'.repeat(80)}\n`);
+    
     const apiError = handleAPIError(error);
     return NextResponse.json(
       { error: apiError.message, code: apiError.code },

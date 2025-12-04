@@ -40,6 +40,7 @@ export class GitHubClient {
    * Make a request to GitHub API with error handling
    */
   private async request<T>(url: string): Promise<T> {
+    console.log(`[GitHub API] GET ${url.replace(GITHUB_API_BASE, '')}`);
     const response = await fetch(url, {
       headers: this.getHeaders(),
     });

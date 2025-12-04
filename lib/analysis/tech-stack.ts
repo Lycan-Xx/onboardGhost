@@ -233,6 +233,186 @@ function detectRubyDatabase(gems: string[]): string | null {
 }
 
 /**
+ * Detect Go stack from go.mod
+ */
+export function detectGoStack(goModContent: string): Partial<TechStack> {
+  const dependencies = parseGoMod(goModContent);
+  
+  return {
+    primary_language: 'Go',
+    framework: detectGoFramework(dependencies),
+    runtime_version: extractGoVersion(goModContent),
+    package_manager: 'go modules',
+    dependencies: {
+      production: dependencies,
+      development: [],
+    },
+    testing_framework: 'testing (built-in)',
+    database: detectGoDatabase(dependencies),
+    ui_library: null,
+  };
+}
+
+function parseGoMod(content: string): string[] {
+  const requirePattern = /require\s+([^\s]+)/g;
+  const deps: string[] = [];
+  let match;
+  
+  while ((match = requirePattern.exec(content)) !== null) {
+    deps.push(match[1]);
+  }
+  
+  return deps;
+}
+
+function extractGoVersion(content: string): string {
+  const versionMatch = content.match(/go\s+([\d.]+)/);
+  return versionMatch ? `Go ${versionMatch[1]}` : 'Go (version unspecified)';
+}
+
+function detectGoFramework(deps: string[]): string {
+  if (deps.some(d => d.includes('gin-gonic/gin'))) return 'Gin';
+  if (deps.some(d => d.includes('gofiber/fiber'))) return 'Fiber';
+  if (deps.some(d => d.includes('labstack/echo'))) return 'Echo';
+  if (deps.some(d => d.includes('gorilla/mux'))) return 'Gorilla Mux';
+  if (deps.some(d => d.includes('chi'))) return 'Chi';
+  return 'Standard Library';
+}
+
+function detectGoDatabase(deps: string[]): string | null {
+  if (deps.some(d => d.includes('lib/pq'))) return 'PostgreSQL';
+  if (deps.some(d => d.includes('go-sql-driver/mysql'))) return 'MySQL';
+  if (deps.some(d => d.includes('mongo-driver'))) return 'MongoDB';
+  if (deps.some(d => d.includes('go-redis'))) return 'Redis';
+  if (deps.some(d => d.includes('gorm'))) return 'GORM (ORM)';
+  return null;
+}
+
+/**
+ * Detect Rust stack from Cargo.toml
+ */
+export function detectRustStack(cargoTomlContent: string): Partial<TechStack> {
+  const dependencies = parseCargoToml(cargoTomlContent);
+  
+  return {
+    primary_language: 'Rust',
+    framework: detectRustFramework(dependencies),
+    runtime_version: 'Rust (check with rustc --version)',
+    package_manager: 'Cargo',
+    dependencies: {
+      production: dependencies,
+      development: [],
+    },
+    testing_framework: 'cargo test (built-in)',
+    database: detectRustDatabase(dependencies),
+    ui_library: null,
+  };
+}
+
+function parseCargoToml(content: string): string[] {
+  const depPattern = /^\s*([a-zA-Z0-9_-]+)\s*=/gm;
+  const deps: string[] = [];
+  let match;
+  
+  while ((match = depPattern.exec(content)) !== null) {
+    deps.push(match[1]);
+  }
+  
+  return deps;
+}
+
+function detectRustFramework(deps: string[]): string {
+  if (deps.includes('actix-web')) return 'Actix Web';
+  if (deps.includes('rocket')) return 'Rocket';
+  if (deps.includes('axum')) return 'Axum';
+  if (deps.includes('warp')) return 'Warp';
+  if (deps.includes('tide')) return 'Tide';
+  return 'Standard Library';
+}
+
+function detectRustDatabase(deps: string[]): string | null {
+  if (deps.includes('tokio-postgres') || deps.includes('postgres')) return 'PostgreSQL';
+  if (deps.includes('mysql')) return 'MySQL';
+  if (deps.includes('mongodb')) return 'MongoDB';
+  if (deps.includes('redis')) return 'Redis';
+  if (deps.includes('diesel')) return 'Diesel (ORM)';
+  if (deps.includes('sqlx')) return 'SQLx';
+  return null;
+}
+
+/**
+ * Detect Java stack from pom.xml or build.gradle
+ */
+export function detectJavaStack(buildFileContent: string, fileType: 'maven' | 'gradle'): Partial<TechStack> {
+  const dependencies = fileType === 'maven' 
+    ? parseMavenDependencies(buildFileContent)
+    : parseGradleDependencies(buildFileContent);
+  
+  return {
+    primary_language: 'Java',
+    framework: detectJavaFramework(dependencies),
+    runtime_version: 'Java (check with java -version)',
+    package_manager: fileType === 'maven' ? 'Maven' : 'Gradle',
+    dependencies: {
+      production: dependencies,
+      development: [],
+    },
+    testing_framework: detectJavaTesting(dependencies),
+    database: detectJavaDatabase(dependencies),
+    ui_library: null,
+  };
+}
+
+function parseMavenDependencies(content: string): string[] {
+  const artifactPattern = /<artifactId>([^<]+)<\/artifactId>/g;
+  const deps: string[] = [];
+  let match;
+  
+  while ((match = artifactPattern.exec(content)) !== null) {
+    deps.push(match[1]);
+  }
+  
+  return deps;
+}
+
+function parseGradleDependencies(content: string): string[] {
+  const depPattern = /implementation\s+['"]([^'"]+)['"]/g;
+  const deps: string[] = [];
+  let match;
+  
+  while ((match = depPattern.exec(content)) !== null) {
+    const parts = match[1].split(':');
+    deps.push(parts[parts.length - 1]);
+  }
+  
+  return deps;
+}
+
+function detectJavaFramework(deps: string[]): string {
+  if (deps.some(d => d.includes('spring-boot'))) return 'Spring Boot';
+  if (deps.some(d => d.includes('quarkus'))) return 'Quarkus';
+  if (deps.some(d => d.includes('micronaut'))) return 'Micronaut';
+  if (deps.some(d => d.includes('jakarta.servlet'))) return 'Jakarta EE';
+  return 'Java SE';
+}
+
+function detectJavaTesting(deps: string[]): string | null {
+  if (deps.some(d => d.includes('junit'))) return 'JUnit';
+  if (deps.some(d => d.includes('testng'))) return 'TestNG';
+  if (deps.some(d => d.includes('mockito'))) return 'Mockito';
+  return null;
+}
+
+function detectJavaDatabase(deps: string[]): string | null {
+  if (deps.some(d => d.includes('postgresql'))) return 'PostgreSQL';
+  if (deps.some(d => d.includes('mysql'))) return 'MySQL';
+  if (deps.some(d => d.includes('mongodb'))) return 'MongoDB';
+  if (deps.some(d => d.includes('h2'))) return 'H2';
+  if (deps.some(d => d.includes('hibernate'))) return 'Hibernate (ORM)';
+  return null;
+}
+
+/**
  * Main tech stack detection function
  */
 export async function detectTechStack(
@@ -259,8 +439,6 @@ export async function detectTechStack(
 
     if (pyprojectToml) {
       try {
-        // Would need a TOML parser here
-        // For now, just pass undefined
         pyprojectData = undefined;
       } catch (error) {
         console.error('Failed to parse pyproject.toml:', error);
@@ -272,6 +450,25 @@ export async function detectTechStack(
     const gemfile = files.get('Gemfile');
     if (gemfile) {
       partialStack = detectRubyStack(gemfile);
+    }
+  } else if (primaryLanguage === 'Go') {
+    const goMod = files.get('go.mod');
+    if (goMod) {
+      partialStack = detectGoStack(goMod);
+    }
+  } else if (primaryLanguage === 'Rust') {
+    const cargoToml = files.get('Cargo.toml');
+    if (cargoToml) {
+      partialStack = detectRustStack(cargoToml);
+    }
+  } else if (primaryLanguage === 'Java') {
+    const pomXml = files.get('pom.xml');
+    const buildGradle = files.get('build.gradle') || files.get('build.gradle.kts');
+    
+    if (pomXml) {
+      partialStack = detectJavaStack(pomXml, 'maven');
+    } else if (buildGradle) {
+      partialStack = detectJavaStack(buildGradle, 'gradle');
     }
   }
 

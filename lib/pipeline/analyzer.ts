@@ -47,6 +47,21 @@ export class RepositoryAnalyzer {
     message: string,
     details?: any
   ) {
+    // Console logging for terminal visibility
+    const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+    const statusEmoji = {
+      'pending': '⏳',
+      'in-progress': '🔄',
+      'completed': '✅',
+      'failed': '❌'
+    }[status];
+    
+    console.log(`[${timestamp}] ${statusEmoji} Step ${step}/8: ${stepName} - ${message}`);
+    if (details) {
+      console.log(`         Details:`, JSON.stringify(details, null, 2));
+    }
+    
+    // Call progress callback if provided
     if (this.onProgress) {
       this.onProgress({ step, stepName, status, message, details });
     }
@@ -76,8 +91,17 @@ export class RepositoryAnalyzer {
     repoUrl: string,
     startTime: number
   ): Promise<CompleteAnalysis> {
+    console.log('\n' + '='.repeat(80));
+    console.log('🚀 STARTING REPOSITORY ANALYSIS');
+    console.log('='.repeat(80));
+    console.log(`📦 Repository: ${repoUrl}`);
+    console.log(`⏰ Started at: ${new Date().toISOString()}`);
+    console.log('='.repeat(80) + '\n');
+    
     // Parse URL
     const { owner, repo } = parseGitHubUrl(repoUrl);
+    console.log(`[Parser] Owner: ${owner}, Repo: ${repo}`);
+    
     const githubClient = createGitHubClient(this.githubToken);
     const geminiClient = createGeminiClient();
 
@@ -202,6 +226,16 @@ export class RepositoryAnalyzer {
     const duration = Math.round((Date.now() - startTime) / 1000);
     metadata.analysis_duration = duration;
     this.reportProgress(8, 'Complete', 'completed', `Analysis completed in ${duration}s`);
+    
+    console.log('\n' + '='.repeat(80));
+    console.log('🎉 ANALYSIS COMPLETE!');
+    console.log('='.repeat(80));
+    console.log(`⏱️  Total Duration: ${duration}s`);
+    console.log(`📊 Files Scanned: ${filteredFiles.total_files}`);
+    console.log(`📝 Files Analyzed: ${filteredFiles.analyzed_files}`);
+    console.log(`📚 Sections Generated: ${roadmap.sections.length}`);
+    console.log(`✅ Tasks Created: ${roadmap.total_tasks}`);
+    console.log('='.repeat(80) + '\n');
 
     return {
       repository: metadata,

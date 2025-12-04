@@ -1,11 +1,30 @@
 /**
  * Google Gemini AI client for analysis and chat
+ * Enhanced version with project-specific roadmap generation
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { retryWithBackoff } from '../utils/retry';
 import { GeminiAPIError } from '../utils/errors';
-import { ProjectPurpose } from '../types';
+import {
+  ProjectPurpose,
+  TechStack,
+  DatabaseRequirement,
+  EnvironmentVariable,
+  SecurityIssue,
+  RepositoryMetadata,
+  Roadmap,
+} from '../types/roadmap';
+
+interface AnalysisData {
+  tech_stack: TechStack;
+  database: DatabaseRequirement[];
+  env_vars: EnvironmentVariable[];
+  purpose: ProjectPurpose;
+  setup_instructions?: string;
+  security_issues?: SecurityIssue[];
+  repository_metadata: RepositoryMetadata;
+}
 
 export class GeminiClient {
   private genAI: GoogleGenerativeAI;
@@ -13,7 +32,15 @@ export class GeminiClient {
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+    this.model = this.genAI.getGenerativeModel({ 
+      model: 'gemini-2.5-pro',
+      generationConfig: {
+        temperature: 0.7, // Balance creativity with consistency
+        topP: 0.95,
+        topK: 40,
+        maxOutputTokens: 8192,
+      }
+    });
   }
 
   /**
@@ -54,14 +81,7 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
         2000
       );
 
-      // Clean up response
-      let cleanedResult = result.trim();
-      if (cleanedResult.startsWith('```json')) {
-        cleanedResult = cleanedResult.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      } else if (cleanedResult.startsWith('```')) {
-        cleanedResult = cleanedResult.replace(/```\n?/g, '');
-      }
-
+      const cleanedResult = this.cleanJsonResponse(result);
       const parsed = JSON.parse(cleanedResult);
 
       // Validate required fields
@@ -82,164 +102,58 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
   }
 
   /**
-   * Generate local setup roadmap from analysis data
+   * Generate personalized local setup roadmap from analysis data
    */
-  async generateRoadmap(analysisData: {
-    tech_stack: any;
-    database: any[];
-    env_vars: any[];
-    purpose: ProjectPurpose;
-    setup_instructions?: string;
-    security_issues?: any[];
-  }): Promise<any> {
-    const envVarsList = analysisData.env_vars.map(v => `${v.name}=${v.example_value || 'your_value_here'}`).join('\n');
-    
-    const prompt = `You are creating a DETAILED LOCAL SETUP GUIDE to help a developer get this project running on their machine.
+  async generateRoadmap(analysisData: AnalysisData): Promise<Roadmap> {
+    // Build project-specific context
+    const projectContext = this.buildProjectContext(analysisData);
+    const sectionGuidance = this.buildSectionGuidance(analysisData);
+    const exampleTask = this.buildExampleTask(analysisData);
 
-=== PRIMARY GOAL ===
-Help the developer:
-1. UNDERSTAND what this project does and how it works
-2. SET UP the project locally step-by-step  
-3. LEARN the setup process so they can do it independently
-4. VERIFY everything is working correctly
+    const prompt = `You are creating a PERSONALIZED local setup guide for THIS SPECIFIC PROJECT.
 
-This is about LOCAL SETUP and LEARNING, not contributing code or deployment.
+=== CRITICAL: PROJECT-SPECIFIC REQUIREMENTS ===
+Repository: ${analysisData.repository_metadata?.owner || 'unknown'}/${analysisData.repository_metadata?.name || 'unknown'}
+Primary Language: ${analysisData.repository_metadata?.language || 'Unknown'}
+Framework: ${analysisData.tech_stack?.framework || 'None'}
+Database: ${analysisData.database && analysisData.database.length > 0 ? analysisData.database[0].type : 'None'}
+Project Type: ${analysisData.purpose?.project_type || 'Unknown'}
+Project Purpose: ${analysisData.purpose?.purpose || 'Not specified'}
 
-=== REPOSITORY ANALYSIS ===
-Tech Stack: ${JSON.stringify(analysisData.tech_stack, null, 2)}
-Database: ${JSON.stringify(analysisData.database, null, 2)}
-Project Purpose: ${analysisData.purpose.purpose}
-Features: ${analysisData.purpose.features.join(', ')}
-Environment Variables (${analysisData.env_vars.length} total):
-${envVarsList}
+${projectContext}
 
-${analysisData.setup_instructions ? `Setup Instructions from README:\n${analysisData.setup_instructions}\n` : ''}
-${analysisData.security_issues && analysisData.security_issues.length > 0 ? `⚠️ SECURITY: ${analysisData.security_issues.length} secrets detected!\n` : ''}
+=== YOUR MISSION ===
+This is NOT a generic tutorial. This is a guide for THIS EXACT PROJECT: ${analysisData.repository_metadata.name}
 
-=== TASK STRUCTURE ===
-Each task MUST include:
-- title: Clear, actionable
-- description: 2-3 sentences explaining WHAT and WHY
-- instructions: Array of 4-8 detailed steps with OS-specific guidance where applicable
-- commands: Array of CLI commands (include OS-specific variants if different)
-- code_snippets: Array of strings OR objects with {file, language, code} for file content
-- tips: 2-4 helpful learning hints
-- warnings: 1-3 common mistakes to avoid (include OS-specific warnings)
-- difficulty: easy/medium/hard
-- estimated_time: e.g., "10 minutes"
+Requirements:
+- Reference ACTUAL file paths from THIS project (e.g., "prisma/schema.prisma", "src/config/database.ts")
+- Use ACTUAL dependency names from THIS project's package.json/requirements.txt
+- Include ACTUAL configuration from THIS project's .env.example
+- Mention THIS project's specific quirks and setup needs
+- If THIS project uses Docker, emphasize Docker setup
+- If THIS project needs external services (Stripe, AWS), explain those specifically
+- Use the ACTUAL tech stack: ${analysisData.tech_stack?.framework || 'Unknown'} + ${analysisData.tech_stack?.primary_language || analysisData.repository_metadata?.language || 'Unknown'}
 
-IMPORTANT - OS-Specific Instructions:
-- For installation steps, provide instructions for Mac, Windows, and Linux where they differ
-- Format: "On Mac: ..., On Windows: ..., On Linux: ..."
-- For commands that differ by OS, include all variants
-- Example: "Mac/Linux: npm install, Windows: npm install (same command)"
+${sectionGuidance}
 
-=== EXAMPLE TASK ===
+=== PROJECT-SPECIFIC EXAMPLE TASK ===
+${exampleTask}
+
+=== OUTPUT STRUCTURE ===
+Return ONLY valid JSON (no markdown, no code blocks, no preamble):
 {
-  "id": "task-1",
-  "title": "Install Node.js v18+ and Verify",
-  "description": "Node.js is the JavaScript runtime that powers this application. Version 18+ is required for compatibility. This sets up the foundation for running the project.",
-  "instructions": [
-    "Visit nodejs.org and download the LTS version",
-    "Mac: Download the .pkg installer and run it. Windows: Download the .msi installer and run it. Linux: Use your package manager (apt, yum, dnf) or download from nodejs.org",
-    "Follow the installation wizard and accept default settings",
-    "Open a NEW terminal window (important: this loads Node.js into your PATH)",
-    "Verify Node.js installation by running the version command",
-    "Verify npm (package manager) is also installed",
-    "You should see version 18.x.x or higher for Node.js"
-  ],
-  "commands": [
-    "node --version",
-    "npm --version",
-    "# Linux package manager install:",
-    "# Ubuntu/Debian: sudo apt install nodejs npm",
-    "# Fedora: sudo dnf install nodejs npm"
-  ],
-  "code_snippets": [],
-  "tips": [
-    "Use nvm (Node Version Manager) to easily switch between Node versions - works on Mac/Linux/Windows",
-    "LTS version is more stable than 'Current' - always choose LTS for production work",
-    "Check your version first with 'node --version' - you might already have it installed",
-    "On Windows, you may need to run terminal as Administrator for global npm packages"
-  ],
-  "warnings": [
-    "Mac/Linux: Don't use sudo for npm packages - causes permission issues. Fix npm permissions instead",
-    "Windows: Restart your computer after installation for PATH changes to take effect",
-    "M1/M2 Mac users: Download the ARM64 version, not the x64 version for better performance"
-  ],
-  "difficulty": "easy",
-  "estimated_time": "10 minutes"
-}
-
-=== REQUIRED SECTIONS (EXACT ORDER - SKIP IF NOT APPLICABLE) ===
-1. "Understanding the Project" - ALWAYS INCLUDE
-   - Overview of project purpose and features
-   - Tech stack explanation (what each tool does)
-   - High-level architecture (how components connect)
-   
-2. "Environment Setup" - ALWAYS INCLUDE
-   - Install Node.js/Python/Ruby (with version) - include Mac/Windows/Linux instructions
-   - Install Docker (ONLY if docker-compose.yml or Dockerfile detected)
-   - Install database tools (ONLY if database detected)
-   - Verify all installations
-   
-3. "Getting the Code" - ALWAYS INCLUDE
-   - Clone repository with git (Mac/Windows/Linux)
-   - Install project dependencies
-   - Understand dependency files (package.json, requirements.txt, etc.)
-   
-4. "Database Setup" - ONLY if database detected (${analysisData.database.length > 0 ? 'INCLUDE THIS' : 'SKIP THIS'})
-   - Install database (PostgreSQL/MySQL/MongoDB) with OS-specific instructions
-   - Create database
-   - Run migrations
-   - Seed test data (if available)
-   
-5. "Configuration" - ONLY if env vars exist (${analysisData.env_vars.length > 0 ? 'INCLUDE THIS' : 'SKIP THIS'})
-   - Create .env file with ALL ${analysisData.env_vars.length} variables
-   - Explain what each variable does
-   - Get API keys (if needed)
-   - Configure database connection (if database exists)
-   
-6. "Running the Application" - ALWAYS INCLUDE
-   - Start the development server (include OS-specific notes if needed)
-   - Access application in browser
-   - Verify all features work
-   - Understand the dev workflow
-
-CRITICAL: Only include sections that are relevant to THIS project. If no database is detected, skip "Database Setup". If no env vars, skip "Configuration".
-
-=== CRITICAL REQUIREMENTS ===
-- START with "Understanding the Project" - context FIRST
-- SKIP sections that don't apply (no database? skip Database Setup)
-- Focus on LOCAL SETUP only (no deployment/CI/CD)
-- 4-8 detailed instructions per task with OS-specific guidance
-- Include Mac, Windows, and Linux instructions where they differ
-- Separate "commands" (CLI) from "code_snippets" (file content)
-- For code_snippets: Use strings for simple code, or objects like {"file": ".env", "language": "bash", "code": "DATABASE_URL=..."} for file content
-- For .env: show COMPLETE file with all ${analysisData.env_vars.length} variables in code_snippets
-- Include verification steps (how to know it worked)
-- Explain WHY each step is needed (educational)
-- Use beginner-friendly language
-- Include expected output for commands
-- Add OS-specific troubleshooting tips
-
-=== OUTPUT FORMAT ===
-Return ONLY valid JSON (no markdown, no code blocks):
-{
-  "repository_name": "${analysisData.purpose.project_type}",
-  "total_tasks": <count>,
+  "repository_name": "${analysisData.repository_metadata?.name || 'Unknown Project'}",
+  "total_tasks": <count all tasks across all sections>,
   "estimated_completion_time": "2-4 hours",
   "sections": [
     {
       "id": "section-1",
-      "title": "Understanding the Project",
-      "description": "Learn what this project does before setup",
-      "tasks": [...]
+      "title": "Understanding ${analysisData.repository_metadata?.name || 'the Project'}",
+      "description": "Learn what this ${analysisData.purpose?.project_type || 'project'} does before setup",
+      "tasks": [<task objects>]
     }
   ]
-}
-
-Generate the LOCAL SETUP GUIDE with maximum educational detail:`;
+}`;
 
     try {
       const result = await retryWithBackoff(
@@ -248,44 +162,16 @@ Generate the LOCAL SETUP GUIDE with maximum educational detail:`;
           return response.response.text();
         },
         3,
-        2000
+        3000
       );
 
-      // Clean up response
-      let cleanedResult = result.trim();
-      if (cleanedResult.startsWith('```json')) {
-        cleanedResult = cleanedResult.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      } else if (cleanedResult.startsWith('```')) {
-        cleanedResult = cleanedResult.replace(/```\n?/g, '');
-      }
-
+      const cleanedResult = this.cleanJsonResponse(result);
       const parsed = JSON.parse(cleanedResult);
 
-      // Validate structure
-      if (!parsed.sections || !Array.isArray(parsed.sections)) {
-        throw new Error('Invalid roadmap structure');
-      }
+      // Validate and normalize structure
+      this.validateAndNormalizeRoadmap(parsed);
 
-      // Ensure instructions is always an array
-      for (const section of parsed.sections) {
-        if (section.tasks && Array.isArray(section.tasks)) {
-          for (const task of section.tasks) {
-            if (task.instructions && typeof task.instructions === 'string') {
-              task.instructions = [task.instructions];
-            }
-            // Ensure code_snippets exists
-            if (!task.code_snippets) {
-              task.code_snippets = [];
-            }
-            // Ensure commands exists
-            if (!task.commands) {
-              task.commands = [];
-            }
-          }
-        }
-      }
-
-      return parsed;
+      return parsed as Roadmap;
     } catch (error) {
       console.error('Failed to generate roadmap:', error);
       throw new GeminiAPIError('Failed to generate setup roadmap', error);
@@ -293,11 +179,333 @@ Generate the LOCAL SETUP GUIDE with maximum educational detail:`;
   }
 
   /**
+   * Build project-specific context for the prompt
+   */
+  private buildProjectContext(analysisData: AnalysisData): string {
+    const contexts: string[] = [];
+
+    // Framework-specific context
+    if (analysisData.tech_stack?.framework) {
+      const framework = analysisData.tech_stack.framework;
+      
+      if (framework.includes('Next.js')) {
+        contexts.push(`
+⚡ Next.js Project Specifics:
+- Uses Next.js (requires Node.js 18+)
+- Development server runs on port 3000 by default
+- Uses file-based routing in the /app or /pages directory
+- Environment variables must start with NEXT_PUBLIC_ to be client-accessible
+- Build output goes to .next/ directory`);
+      } else if (framework.includes('Django')) {
+        contexts.push(`
+🐍 Django Project Specifics:
+- Uses Django framework for Python
+- Requires virtual environment (venv) for dependencies
+- Uses Django ORM for database operations
+- Settings in settings.py control configuration
+- Manage.py is the main CLI tool for commands`);
+      }
+      // Add more frameworks as needed
+    }
+
+    // Database-specific context
+    if (analysisData.database && analysisData.database.length > 0) {
+      const db = analysisData.database[0];
+      const connectionExample = this.getDatabaseConnectionExample(db.type);
+      
+      contexts.push(`
+🗄️ Database: ${db.type}
+- Type: ${db.type} ${db.version_requirement || '(latest recommended)'}
+- Migrations: ${db.migrations_path || 'Not detected'}
+- Connection format: ${connectionExample}
+- Migration required: ${db.requires_migration ? 'Yes' : 'No'}
+- Seed data: ${db.seed_data_available ? 'Available' : 'Not available'}`);
+    }
+
+    // Environment variables context
+    if (analysisData.env_vars && analysisData.env_vars.length > 0) {
+      const categories = this.categorizeEnvVars(analysisData.env_vars);
+      const criticalVars = this.getCriticalVars(analysisData.env_vars);
+      
+      contexts.push(`
+🔐 Configuration:
+- Total environment variables: ${analysisData.env_vars.length}
+- Categories: ${categories.join(', ')}
+- Critical variables: ${criticalVars.join(', ')}
+- Configuration file: .env (create from .env.example)`);
+    }
+
+    return contexts.join('\n\n');
+  }
+
+  /**
+   * Build section-specific guidance
+   */
+  private buildSectionGuidance(analysisData: AnalysisData): string {
+    const sections: string[] = [
+      'Understanding the Project',
+      'Environment Setup',
+      'Getting the Code',
+    ];
+
+    if (analysisData.database && analysisData.database.length > 0) {
+      sections.push('Database Setup');
+    }
+
+    if (analysisData.env_vars && analysisData.env_vars.length > 0) {
+      sections.push('Configuration');
+    }
+
+    sections.push('Running the Application');
+
+    let guidance = `
+=== REQUIRED SECTIONS (in this exact order) ===
+${sections.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+`;
+
+    return guidance;
+  }
+
+  /**
+   * Build a project-specific example task
+   */
+  private buildExampleTask(analysisData: AnalysisData): string {
+    const framework = analysisData.tech_stack?.framework || '';
+    const repoName = analysisData.repository_metadata?.name || 'this project';
+    const language = analysisData.repository_metadata?.language || 'Unknown';
+    const runtimeVersion = analysisData.tech_stack?.runtime_version || 'latest';
+
+    // Next.js example
+    if (framework.includes('Next.js')) {
+      return `
+{
+  "id": "task-install-nodejs",
+  "title": "Install Node.js ${runtimeVersion} for ${repoName}",
+  "description": {
+    "summary": "Set up Node.js runtime required for this Next.js application",
+    "why_needed": "${repoName} uses Next.js which requires Node.js 18 or higher",
+    "learning_goal": "Understand why runtime versions matter"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "action": "Check existing Node.js installation",
+      "details": "Run node --version to check if Node.js is installed",
+      "os_specific": null
+    }
+  ],
+  "commands": [
+    {
+      "command": "node --version",
+      "description": "Check installed Node.js version",
+      "expected_output": "v18.x.x or higher",
+      "os": "all"
+    }
+  ],
+  "difficulty": "beginner",
+  "estimated_time": "10-15 minutes"
+}`;
+    }
+
+    // PHP/Laravel example
+    if (language === 'PHP' || framework.includes('Laravel')) {
+      return `
+{
+  "id": "task-install-php",
+  "title": "Install PHP and Composer for ${repoName}",
+  "description": {
+    "summary": "Set up PHP runtime and Composer package manager",
+    "why_needed": "${repoName} is a PHP project that requires PHP 8.0+ and Composer",
+    "learning_goal": "Understand PHP development environment setup"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "action": "Check existing PHP installation",
+      "details": "Run php --version to check if PHP is installed",
+      "os_specific": {
+        "mac": "Install via Homebrew: brew install php",
+        "windows": "Download from php.net or use XAMPP",
+        "linux": "Install via package manager: sudo apt install php"
+      }
+    }
+  ],
+  "commands": [
+    {
+      "command": "php --version",
+      "description": "Check installed PHP version",
+      "expected_output": "PHP 8.0 or higher",
+      "os": "all"
+    }
+  ],
+  "difficulty": "beginner",
+  "estimated_time": "15-20 minutes"
+}`;
+    }
+
+    // Python example
+    if (language === 'Python' || framework.includes('Django') || framework.includes('Flask')) {
+      return `
+{
+  "id": "task-install-python",
+  "title": "Install Python for ${repoName}",
+  "description": {
+    "summary": "Set up Python runtime environment",
+    "why_needed": "${repoName} is a Python project",
+    "learning_goal": "Understand Python virtual environments"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "action": "Check existing Python installation",
+      "details": "Run python --version to check if Python is installed",
+      "os_specific": null
+    }
+  ],
+  "commands": [
+    {
+      "command": "python --version",
+      "description": "Check installed Python version",
+      "expected_output": "Python 3.8 or higher",
+      "os": "all"
+    }
+  ],
+  "difficulty": "beginner",
+  "estimated_time": "10-15 minutes"
+}`;
+    }
+
+    // Generic example for unknown languages
+    return `
+{
+  "id": "task-clone-repo",
+  "title": "Clone ${repoName} Repository",
+  "description": {
+    "summary": "Get the project code on your local machine",
+    "why_needed": "You need the source code to work with ${repoName}",
+    "learning_goal": "Understand Git cloning and repository structure"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "action": "Clone the repository",
+      "details": "Use git clone to download the project",
+      "os_specific": null
+    }
+  ],
+  "commands": [
+    {
+      "command": "git clone https://github.com/${analysisData.repository_metadata?.owner || 'owner'}/${repoName}.git",
+      "description": "Clone the repository",
+      "expected_output": "Repository cloned successfully",
+      "os": "all"
+    }
+  ],
+  "difficulty": "beginner",
+  "estimated_time": "5 minutes"
+}`;
+  }
+
+  /**
+   * Validate and normalize roadmap structure
+   */
+  private validateAndNormalizeRoadmap(roadmap: any): void {
+    if (!roadmap.sections || !Array.isArray(roadmap.sections)) {
+      throw new Error('Invalid roadmap structure: missing sections array');
+    }
+
+    for (const section of roadmap.sections) {
+      if (!section.tasks || !Array.isArray(section.tasks)) {
+        section.tasks = [];
+      }
+
+      for (const task of section.tasks) {
+        // Ensure all required arrays exist
+        task.steps = task.steps || [];
+        task.commands = task.commands || [];
+        task.code_blocks = task.code_blocks || [];
+        task.references = task.references || [];
+        task.tips = task.tips || [];
+        task.warnings = task.warnings || [];
+        task.depends_on = task.depends_on || [];
+
+        // Ensure description is an object
+        if (typeof task.description === 'string') {
+          task.description = {
+            summary: task.description,
+            why_needed: '',
+            learning_goal: '',
+          };
+        }
+
+        // Ensure verification exists
+        if (!task.verification) {
+          task.verification = {
+            how_to_verify: '',
+            expected_result: '',
+            troubleshooting: [],
+          };
+        }
+      }
+    }
+  }
+
+  /**
+   * Clean JSON response from Gemini (remove markdown code blocks)
+   */
+  private cleanJsonResponse(text: string): string {
+    let cleaned = text.trim();
+
+    // Remove markdown code blocks
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/```\n?/g, '');
+    }
+
+    return cleaned.trim();
+  }
+
+  /**
+   * Get database connection string example
+   */
+  private getDatabaseConnectionExample(dbType: string): string {
+    const examples: Record<string, string> = {
+      PostgreSQL: 'postgresql://username:password@localhost:5432/database_name',
+      MySQL: 'mysql://username:password@localhost:3306/database_name',
+      MongoDB: 'mongodb://localhost:27017/database_name',
+      SQLite: 'sqlite:///path/to/database.db',
+      Redis: 'redis://localhost:6379',
+    };
+    return examples[dbType] || 'Connection string varies';
+  }
+
+  /**
+   * Categorize environment variables
+   */
+  private categorizeEnvVars(envVars: EnvironmentVariable[]): string[] {
+    const categories = new Set<string>();
+    for (const v of envVars) {
+      categories.add(v.category);
+    }
+    return Array.from(categories);
+  }
+
+  /**
+   * Get critical environment variables
+   */
+  private getCriticalVars(envVars: EnvironmentVariable[]): string[] {
+    return envVars
+      .filter(v => v.required)
+      .slice(0, 5)
+      .map(v => v.name);
+  }
+
+  /**
    * Chat with Ghost Mentor - focused on helping with local setup
    */
   async chat(
     message: string,
-    fileUris: string[],
     conversationHistory: Array<{ role: string; content: string }> = []
   ): Promise<string> {
     const systemPrompt = `You are Ghost Mentor, a friendly AI assistant helping developers SET UP this project locally.
@@ -306,29 +514,15 @@ Your PRIMARY GOAL: Help them get the project running on their machine and LEARN 
 
 Guidelines:
 - Focus on LOCAL SETUP questions (installation, configuration, running locally)
-- Answer using ONLY the uploaded code files
-- Include file paths (e.g., "In src/config/database.js...")
 - Provide code snippets when relevant (max 15 lines)
 - Explain WHY things work, not just HOW (educational approach)
 - Keep answers under 200 words unless explaining complex setup
-- If answer isn't in the codebase, say so honestly
-- Offer troubleshooting tips for common setup issues
-
-Personality:
-- Friendly and encouraging (like a helpful senior developer)
-- Patient with beginners
-- Focus on teaching, not just answering
-- Technical accuracy over entertainment
-
-Example good responses:
-- "To configure the database, you need to edit .env and set DATABASE_URL. This tells the app where to find your database..."
-- "The error you're seeing usually means the port is already in use. Try running 'lsof -i :3000' to see what's using it..."
-- "In package.json, you'll see the 'dev' script runs 'next dev'. This starts the Next.js development server on port 3000..."`;
+- Offer troubleshooting tips for common setup issues`;
 
     try {
       const history = [
         { role: 'user', parts: [{ text: systemPrompt }] },
-        { role: 'model', parts: [{ text: "I'll help you set up this project locally and learn the process!" }] },
+        { role: 'model', parts: [{ text: "I'll help you set up this project!" }] },
       ];
 
       for (const msg of conversationHistory) {
@@ -350,7 +544,7 @@ Example good responses:
 
       return result;
     } catch (error) {
-      console.error('Failed to chat with Ghost Mentor:', error);
+      console.error('Failed to chat:', error);
       throw new GeminiAPIError('Failed to generate chat response', error);
     }
   }
