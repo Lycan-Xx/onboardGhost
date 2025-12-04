@@ -17,6 +17,8 @@ interface TaskCommand {
   description: string;
   expected_output: string;
   os: string;
+}
+
 interface TaskStep {
   order: number;
   action: string;
