@@ -11,6 +11,7 @@ interface Task {
   title: string;
   description: string;
   instructions: string | string[];
+  commands?: string[];
   code_snippets?: string[];
   tips?: string[];
   warnings?: string[];
@@ -327,17 +328,36 @@ export default function Tasks() {
                     )}
                   </div>
 
+                  {/* Commands */}
+                  {selectedTask.commands && selectedTask.commands.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        ⚡ Commands to Run
+                      </h3>
+                      <div className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm font-mono space-y-2">
+                        {selectedTask.commands.map((command, index) => (
+                          <div key={index} className="flex items-start gap-2">
+                            <span className="text-green-400 select-none">$</span>
+                            <code className="flex-1">{command}</code>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Code Snippets */}
                   {selectedTask.code_snippets && selectedTask.code_snippets.length > 0 && (
                     <div>
                       <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        💻 Code Examples
+                        💻 Code to Write
                       </h3>
-                      {selectedTask.code_snippets.map((snippet, index) => (
-                        <pre key={index} className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm mb-3">
-                          <code>{snippet}</code>
-                        </pre>
-                      ))}
+                      <div className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm font-mono">
+                        {selectedTask.code_snippets.map((snippet, index) => (
+                          <pre key={index} className={index > 0 ? 'mt-4 pt-4 border-t border-gray-700' : ''}>
+                            <code>{snippet}</code>
+                          </pre>
+                        ))}
+                      </div>
                     </div>
                   )}
 

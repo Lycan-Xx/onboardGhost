@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Repositories collection - read-only for all authenticated users
+    match /repositories/{repoId} {
+      allow read: if true; // Public read for repository analysis
+      allow write: if false; // Only backend can write
+    }
+    
+    // Roadmaps collection - read-only for all authenticated users
+    match /roadmaps/{repoId} {
+      allow read: if true; // Public read for roadmaps
+      allow write: if false; // Only backend can write
+    }
+    
+    // User progress - users can only access their own progress
+    match /user_progress/{userId}/repos/{repoId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+    
+    // Chat history - users can only access their own chat history
+    match /chat_history/{userId}/repos/{repoId}/messages/{messageId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update, delete: if false; // Chat messages are immutable
+    }
+    
+    // Analysis progress - read-only for all (real-time updates)
+    match /analysis_progress/{repoId} {
+      allow read: if true; // Public read for progress tracking
+      allow write: if false; // Only backend can write
+    }
+    
+    // GitHub tokens - users can only access their own tokens
+    match /github_tokens/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+    
+    // Rate limiting collection - backend only
+    match /rate_limits/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false; // Only backend can write
+    }
+  }
+}

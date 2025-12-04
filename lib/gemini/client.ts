@@ -126,17 +126,18 @@ Generate a DETAILED onboarding roadmap with 4-6 sections and 4-8 tasks per secti
   "description": "Get a local copy of the codebase on your machine and install all required packages. This is the foundation for all development work.",
   "instructions": [
     "Open your terminal and navigate to your projects directory",
-    "Clone the repository using: git clone <repository-url>",
-    "Navigate into the project directory: cd <project-name>",
-    "Install dependencies using the package manager: npm install (or yarn install)",
+    "Clone the repository using the git clone command",
+    "Navigate into the project directory",
+    "Install dependencies using the package manager",
     "Verify installation by checking for node_modules folder"
   ],
-  "code_snippets": [
+  "commands": [
     "git clone https://github.com/username/repo-name.git",
     "cd repo-name",
     "npm install",
     "npm list --depth=0"
   ],
+  "code_snippets": [],
   "tips": [
     "Use 'npm ci' instead of 'npm install' for faster, more reliable installs in CI/CD",
     "If you encounter permission errors, avoid using sudo - fix npm permissions instead",
@@ -150,24 +151,32 @@ Generate a DETAILED onboarding roadmap with 4-6 sections and 4-8 tasks per secti
   "estimated_time": "5-10 minutes"
 }
 
+IMPORTANT: Differentiate between "commands" and "code_snippets":
+- "commands": Terminal/shell commands to run (e.g., npm install, git clone, docker-compose up)
+- "code_snippets": Actual code to write in files (e.g., JavaScript, TypeScript, configuration files)
+- Use "commands" for CLI operations, "code_snippets" for file content
+
 === REQUIRED SECTIONS (in this order) ===
 1. "Environment Setup" - Install tools, clone repo, install dependencies, setup database
 2. "Configuration" - Environment variables, API keys, database connections
 3. "Running the Application" - Start dev server, verify it works, understand the stack
 4. "Understanding the Codebase" - Project structure, key files, architecture patterns
 5. "Making Your First Change" - Find a good first issue, make a change, test it
-6. "Advanced Topics" (optional) - Deployment, testing, debugging
+
+DO NOT include "Advanced Topics", "Deployment", or "Production" sections. Focus ONLY on getting the developer productive locally.
 
 === CRITICAL REQUIREMENTS ===
 - EVERY task MUST have 3-7 detailed instructions (not just 1-2 vague steps)
-- EVERY task MUST have actual code_snippets array with real commands/code
+- EVERY task MUST have either "commands" array (for CLI commands) OR "code_snippets" array (for code to write)
+- "commands" = Terminal commands to run (git, npm, docker, etc.)
+- "code_snippets" = Actual code/config to write in files (JavaScript, JSON, .env content, etc.)
 - EVERY task MUST have 2-4 practical tips
 - EVERY task MUST have 1-3 warnings about common mistakes
 - Include specific file paths when relevant (e.g., "Edit src/config/database.js")
-- Include actual commands with proper syntax (e.g., "npm run dev", "docker-compose up")
 - For database tasks, include connection strings and migration commands
-- For env var tasks, show the actual .env file format with all variables
+- For env var tasks, show the actual .env file format with all variables in code_snippets
 - If security issues exist, create a HIGH PRIORITY task to remove them
+- Keep tasks focused on LOCAL DEVELOPMENT only - no deployment, CI/CD, or production topics
 
 === OUTPUT FORMAT ===
 Return ONLY valid JSON (no markdown, no code blocks, no explanations):

@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "firebase:deploy": "firebase deploy --only firestore",
+    "firebase:rules": "firebase deploy --only firestore:rules",
+    "firebase:indexes": "firebase deploy --only firestore:indexes",
+    "firebase:login": "firebase login"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
