@@ -6,10 +6,16 @@ import GhostVisualization from '@/components/GhostVisualization';
 import GhostMentorChat from '@/components/GhostMentorChat';
 import Link from 'next/link';
 
+interface TaskDescription {
+  summary: string;
+  why_needed: string;
+  learning_goal: string;
+}
+
 interface Task {
   id: string;
   title: string;
-  description: string;
+  description: string | TaskDescription; // Support both old and new format
   instructions: string | string[];
   commands?: string[];
   code_snippets?: (string | { file?: string; language?: string; code: string })[];
@@ -308,7 +314,27 @@ export default function Tasks() {
                       {selectedTask.difficulty}
                     </span>
                   </div>
-                  <p className="text-gray-600">{selectedTask.description}</p>
+                  
+                  {/* Handle both old string format and new object format */}
+                  {typeof selectedTask.description === 'string' ? (
+                    <p className="text-gray-600">{selectedTask.description}</p>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-gray-700 text-lg">{selectedTask.description.summary}</p>
+                      {selectedTask.description.why_needed && (
+                        <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded">
+                          <p className="text-sm font-semibold text-blue-900 mb-1">Why this matters:</p>
+                          <p className="text-sm text-blue-800">{selectedTask.description.why_needed}</p>
+                        </div>
+                      )}
+                      {selectedTask.description.learning_goal && (
+                        <div className="bg-green-50 border-l-4 border-green-500 p-3 rounded">
+                          <p className="text-sm font-semibold text-green-900 mb-1">What you'll learn:</p>
+                          <p className="text-sm text-green-800">{selectedTask.description.learning_goal}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-6 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
@@ -372,7 +398,7 @@ export default function Tasks() {
                                   </div>
                                 )}
                                 <pre className="p-4 text-sm font-mono overflow-x-auto">
-                                  <code>{snippet.code || snippet}</code>
+                                  <code>{snippet.code || JSON.stringify(snippet)}</code>
                                 </pre>
                               </div>
                             );
