@@ -13,7 +13,6 @@ export class GeminiClient {
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
-    // Use gemini-1.5-pro-latest which is a generally available model
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
   }
 
@@ -27,7 +26,7 @@ export class GeminiClient {
   ): Promise<ProjectPurpose> {
     const prompt = `Analyze this project and extract:
 1. Project Purpose (1-2 sentences): What problem does this solve?
-2. Core Features (3-5 bullet points): What can users do?n
+2. Core Features (3-5 bullet points): What can users do?
 3. Target Users: Who is this for?
 4. Project Type: (e.g., "REST API", "React Component Library", "CLI Tool", "Web Application")
 
@@ -55,7 +54,7 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
         2000
       );
 
-      // Clean up response (remove markdown code blocks if present)
+      // Clean up response
       let cleanedResult = result.trim();
       if (cleanedResult.startsWith('```json')) {
         cleanedResult = cleanedResult.replace(/```json\n?/g, '').replace(/```\n?/g, '');
@@ -83,7 +82,7 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
   }
 
   /**
-   * Generate onboarding roadmap from analysis data
+   * Generate local setup roadmap from analysis data
    */
   async generateRoadmap(analysisData: {
     tech_stack: any;
@@ -95,7 +94,16 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
   }): Promise<any> {
     const envVarsList = analysisData.env_vars.map(v => `${v.name}=${v.example_value || 'your_value_here'}`).join('\n');
     
-    const prompt = `You are an expert senior developer creating a DETAILED, COMPREHENSIVE onboarding roadmap for a new team member joining this project.
+    const prompt = `You are creating a DETAILED LOCAL SETUP GUIDE to help a developer get this project running on their machine.
+
+=== PRIMARY GOAL ===
+Help the developer:
+1. UNDERSTAND what this project does and how it works
+2. SET UP the project locally step-by-step  
+3. LEARN the setup process so they can do it independently
+4. VERIFY everything is working correctly
+
+This is about LOCAL SETUP and LEARNING, not contributing code or deployment.
 
 === REPOSITORY ANALYSIS ===
 Tech Stack: ${JSON.stringify(analysisData.tech_stack, null, 2)}
@@ -106,95 +114,116 @@ Environment Variables (${analysisData.env_vars.length} total):
 ${envVarsList}
 
 ${analysisData.setup_instructions ? `Setup Instructions from README:\n${analysisData.setup_instructions}\n` : ''}
-${analysisData.security_issues && analysisData.security_issues.length > 0 ? `⚠️ SECURITY ISSUES FOUND: ${analysisData.security_issues.length} secrets detected - MUST be addressed in roadmap!\n` : ''}
+${analysisData.security_issues && analysisData.security_issues.length > 0 ? `⚠️ SECURITY: ${analysisData.security_issues.length} secrets detected!\n` : ''}
 
-=== YOUR TASK ===
-Generate a DETAILED onboarding roadmap with 4-6 sections and 4-8 tasks per section. Each task MUST include:
-1. Clear, actionable title
-2. Detailed description (2-3 sentences explaining WHY this task matters)
-3. Step-by-step instructions (array of 3-7 detailed steps)
-4. Code snippets (actual commands/code the user needs to run)
-5. Practical tips (2-4 helpful hints)
-6. Warnings (1-3 common pitfalls to avoid)
-7. Difficulty level (easy/medium/hard)
-8. Estimated time (e.g., "10 minutes", "30 minutes", "1 hour")
+=== TASK STRUCTURE ===
+Each task MUST include:
+- title: Clear, actionable
+- description: 2-3 sentences explaining WHAT and WHY
+- instructions: Array of 4-8 detailed steps with explanations
+- commands: Array of CLI commands to run (git, npm, docker, etc.)
+- code_snippets: Array of code/config to write in files (.env, config files, etc.)
+- tips: 2-4 helpful learning hints
+- warnings: 1-3 common mistakes to avoid
+- difficulty: easy/medium/hard
+- estimated_time: e.g., "10 minutes"
 
-=== EXAMPLE TASK (FOLLOW THIS LEVEL OF DETAIL) ===
+=== EXAMPLE TASK ===
 {
   "id": "task-1",
-  "title": "Clone Repository and Install Dependencies",
-  "description": "Get a local copy of the codebase on your machine and install all required packages. This is the foundation for all development work.",
+  "title": "Install Node.js v18+ and Verify",
+  "description": "Node.js is the JavaScript runtime that powers this application. Version 18+ is required for compatibility. This sets up the foundation for running the project.",
   "instructions": [
-    "Open your terminal and navigate to your projects directory",
-    "Clone the repository using the git clone command",
-    "Navigate into the project directory",
-    "Install dependencies using the package manager",
-    "Verify installation by checking for node_modules folder"
+    "Visit nodejs.org and download the LTS version for your OS",
+    "Run the installer and follow the wizard (accept defaults)",
+    "Open a NEW terminal window to load Node.js into PATH",
+    "Verify Node.js by running: node --version",
+    "Verify npm by running: npm --version",
+    "You should see v18.x.x or higher"
   ],
   "commands": [
-    "git clone https://github.com/username/repo-name.git",
-    "cd repo-name",
-    "npm install",
-    "npm list --depth=0"
+    "node --version",
+    "npm --version"
   ],
   "code_snippets": [],
   "tips": [
-    "Use 'npm ci' instead of 'npm install' for faster, more reliable installs in CI/CD",
-    "If you encounter permission errors, avoid using sudo - fix npm permissions instead",
-    "Check package.json to understand what dependencies are being installed"
+    "Use nvm (Node Version Manager) to switch between Node versions easily",
+    "LTS version is more stable than 'Current' - always choose LTS",
+    "Check your version first - you might already have it installed"
   ],
   "warnings": [
-    "Don't commit node_modules to git - it's already in .gitignore",
-    "If npm install fails, try deleting node_modules and package-lock.json first"
+    "Don't use sudo for npm packages - causes permission issues",
+    "Windows: Restart computer after install for PATH changes",
+    "M1/M2 Mac: Download ARM64 version, not x64"
   ],
   "difficulty": "easy",
-  "estimated_time": "5-10 minutes"
+  "estimated_time": "10 minutes"
 }
 
-IMPORTANT: Differentiate between "commands" and "code_snippets":
-- "commands": Terminal/shell commands to run (e.g., npm install, git clone, docker-compose up)
-- "code_snippets": Actual code to write in files (e.g., JavaScript, TypeScript, configuration files)
-- Use "commands" for CLI operations, "code_snippets" for file content
-
-=== REQUIRED SECTIONS (in this order) ===
-1. "Environment Setup" - Install tools, clone repo, install dependencies, setup database
-2. "Configuration" - Environment variables, API keys, database connections
-3. "Running the Application" - Start dev server, verify it works, understand the stack
-4. "Understanding the Codebase" - Project structure, key files, architecture patterns
-5. "Making Your First Change" - Find a good first issue, make a change, test it
-
-DO NOT include "Advanced Topics", "Deployment", or "Production" sections. Focus ONLY on getting the developer productive locally.
+=== REQUIRED SECTIONS (EXACT ORDER) ===
+1. "Understanding the Project" - What it does, tech stack, architecture
+   - Overview of project purpose and features
+   - Tech stack explanation (what each tool does)
+   - High-level architecture (how components connect)
+   
+2. "Environment Setup" - Install required tools
+   - Install Node.js/Python/Ruby (with version)
+   - Install Docker (if needed)
+   - Install database tools (if needed)
+   - Verify all installations
+   
+3. "Getting the Code" - Clone and install dependencies
+   - Clone repository with git
+   - Install project dependencies
+   - Understand dependency files (package.json, etc.)
+   
+4. "Database Setup" (if database detected) - Setup database
+   - Install database (PostgreSQL/MySQL/MongoDB)
+   - Create database
+   - Run migrations
+   - Seed test data (if available)
+   
+5. "Configuration" - Environment variables and config
+   - Create .env file with ALL ${analysisData.env_vars.length} variables
+   - Explain what each variable does
+   - Get API keys (if needed)
+   - Configure database connection
+   
+6. "Running the Application" - Start and verify
+   - Start the development server
+   - Access application in browser
+   - Verify all features work
+   - Understand the dev workflow
 
 === CRITICAL REQUIREMENTS ===
-- EVERY task MUST have 3-7 detailed instructions (not just 1-2 vague steps)
-- EVERY task MUST have either "commands" array (for CLI commands) OR "code_snippets" array (for code to write)
-- "commands" = Terminal commands to run (git, npm, docker, etc.)
-- "code_snippets" = Actual code/config to write in files (JavaScript, JSON, .env content, etc.)
-- EVERY task MUST have 2-4 practical tips
-- EVERY task MUST have 1-3 warnings about common mistakes
-- Include specific file paths when relevant (e.g., "Edit src/config/database.js")
-- For database tasks, include connection strings and migration commands
-- For env var tasks, show the actual .env file format with all variables in code_snippets
-- If security issues exist, create a HIGH PRIORITY task to remove them
-- Keep tasks focused on LOCAL DEVELOPMENT only - no deployment, CI/CD, or production topics
+- START with "Understanding the Project" - context FIRST
+- Focus on LOCAL SETUP only (no deployment/CI/CD)
+- 4-8 detailed instructions per task (not 1-2 vague steps)
+- Separate "commands" (CLI) from "code_snippets" (file content)
+- For .env: show COMPLETE file with all ${analysisData.env_vars.length} variables in code_snippets
+- Include verification steps (how to know it worked)
+- Explain WHY each step is needed (educational)
+- Use beginner-friendly language
+- Include expected output for commands
+- Add troubleshooting tips
 
 === OUTPUT FORMAT ===
-Return ONLY valid JSON (no markdown, no code blocks, no explanations):
+Return ONLY valid JSON (no markdown, no code blocks):
 {
   "repository_name": "${analysisData.purpose.project_type}",
   "total_tasks": <count>,
-  "estimated_completion_time": "4-6 hours",
+  "estimated_completion_time": "2-4 hours",
   "sections": [
     {
       "id": "section-1",
-      "title": "Environment Setup",
-      "description": "Get your development environment ready",
-      "tasks": [<detailed tasks here>]
+      "title": "Understanding the Project",
+      "description": "Learn what this project does before setup",
+      "tasks": [...]
     }
   ]
 }
 
-Generate the roadmap NOW with maximum detail and practical guidance:`;
+Generate the LOCAL SETUP GUIDE with maximum educational detail:`;
 
     try {
       const result = await retryWithBackoff(
@@ -221,12 +250,20 @@ Generate the roadmap NOW with maximum detail and practical guidance:`;
         throw new Error('Invalid roadmap structure');
       }
 
-      // Data correction: Ensure task.instructions is always an array
+      // Ensure instructions is always an array
       for (const section of parsed.sections) {
         if (section.tasks && Array.isArray(section.tasks)) {
           for (const task of section.tasks) {
             if (task.instructions && typeof task.instructions === 'string') {
               task.instructions = [task.instructions];
+            }
+            // Ensure code_snippets exists
+            if (!task.code_snippets) {
+              task.code_snippets = [];
+            }
+            // Ensure commands exists
+            if (!task.commands) {
+              task.commands = [];
             }
           }
         }
@@ -235,41 +272,49 @@ Generate the roadmap NOW with maximum detail and practical guidance:`;
       return parsed;
     } catch (error) {
       console.error('Failed to generate roadmap:', error);
-      throw new GeminiAPIError('Failed to generate onboarding roadmap', error);
+      throw new GeminiAPIError('Failed to generate setup roadmap', error);
     }
   }
 
   /**
-   * Chat with Ghost Mentor using File Search
+   * Chat with Ghost Mentor - focused on helping with local setup
    */
   async chat(
     message: string,
     fileUris: string[],
     conversationHistory: Array<{ role: string; content: string }> = []
   ): Promise<string> {
-    const systemPrompt = `You are Ghost Mentor, a friendly AI assistant helping developers understand this codebase.
+    const systemPrompt = `You are Ghost Mentor, a friendly AI assistant helping developers SET UP this project locally.
+
+Your PRIMARY GOAL: Help them get the project running on their machine and LEARN the setup process.
 
 Guidelines:
-- Answer questions using ONLY the uploaded code files
-- Include file paths in your answers (e.g., "In src/auth/login.js...")
+- Focus on LOCAL SETUP questions (installation, configuration, running locally)
+- Answer using ONLY the uploaded code files
+- Include file paths (e.g., "In src/config/database.js...")
 - Provide code snippets when relevant (max 15 lines)
-- Keep answers under 200 words unless explaining complex architecture
+- Explain WHY things work, not just HOW (educational approach)
+- Keep answers under 200 words unless explaining complex setup
 - If answer isn't in the codebase, say so honestly
-- Offer one follow-up suggestion at the end
+- Offer troubleshooting tips for common setup issues
 
 Personality:
-- Friendly but professional (no "Hey buddy!")
-- Encouraging without being condescending
-- Technical accuracy over entertainment`;
+- Friendly and encouraging (like a helpful senior developer)
+- Patient with beginners
+- Focus on teaching, not just answering
+- Technical accuracy over entertainment
+
+Example good responses:
+- "To configure the database, you need to edit .env and set DATABASE_URL. This tells the app where to find your database..."
+- "The error you're seeing usually means the port is already in use. Try running 'lsof -i :3000' to see what's using it..."
+- "In package.json, you'll see the 'dev' script runs 'next dev'. This starts the Next.js development server on port 3000..."`;
 
     try {
-      // Build conversation history
       const history = [
         { role: 'user', parts: [{ text: systemPrompt }] },
-        { role: 'model', parts: [{ text: "Understood. I'll help you understand this codebase." }] },
+        { role: 'model', parts: [{ text: "I'll help you set up this project locally and learn the process!" }] },
       ];
 
-      // Add previous conversation
       for (const msg of conversationHistory) {
         history.push({
           role: msg.role === 'user' ? 'user' : 'model',
