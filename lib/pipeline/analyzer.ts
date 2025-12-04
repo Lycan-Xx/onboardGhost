@@ -207,6 +207,7 @@ export class RepositoryAnalyzer {
       purpose: projectPurpose,
       setup_instructions: readmeContent.slice(0, 1000),
       security_issues: [],
+      repository_metadata: metadata,
     });
 
     const roadmap = {
