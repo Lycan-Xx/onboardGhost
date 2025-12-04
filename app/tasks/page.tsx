@@ -12,18 +12,42 @@ interface TaskDescription {
   learning_goal: string;
 }
 
+interface TaskCommand {
+  command: string;
+  description: string;
+  expected_output: string;
+  os: string;
+}
+
+interface TaskStep {
+  order: number;
+  action: string;
+  details: string;
+  os_specific?: Record<string, string>;
+}
+
+interface TaskVerification {
+  how_to_verify: string;
+  expected_result: string;
+  troubleshooting: string[];
+}
+
 interface Task {
   id: string;
   title: string;
-  description: string | TaskDescription; // Support both old and new format
-  instructions: string | string[];
-  commands?: string[];
+  description: string | TaskDescription;
+  instructions?: string | string[];
+  steps?: TaskStep[];
+  commands?: TaskCommand[];
   code_snippets?: (string | { file?: string; language?: string; code: string })[];
   tips?: string[];
   warnings?: string[];
   difficulty: 'easy' | 'medium' | 'hard';
   estimated_time: string;
   dependencies?: string[];
+  verification?: TaskVerification;
+  depends_on?: string[];
+  references?: string[];
 }
 
 interface Section {
@@ -338,21 +362,54 @@ export default function Tasks() {
                 </div>
 
                 <div className="space-y-6 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
-                  {/* Instructions */}
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      📋 Instructions
-                    </h3>
-                    {Array.isArray(selectedTask.instructions) ? (
-                      <ol className="list-decimal list-inside space-y-2 text-gray-700">
-                        {selectedTask.instructions.map((instruction, index) => (
-                          <li key={index} className="pl-2">{instruction}</li>
+                  {/* Steps */}
+                  {selectedTask.steps && selectedTask.steps.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        📋 Steps to Follow
+                      </h3>
+                      <ol className="space-y-3">
+                        {selectedTask.steps.map((step, index) => (
+                          <li key={index} className="flex gap-3">
+                            <span className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white text-sm font-semibold rounded-full flex items-center justify-center">
+                              {step.order}
+                            </span>
+                            <div className="flex-1">
+                              <p className="text-gray-700 font-medium">{step.action}</p>
+                              <p className="text-gray-600 text-sm mt-1">{step.details}</p>
+                              {step.os_specific && Object.keys(step.os_specific).length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {Object.entries(step.os_specific).map(([os, instruction]) => (
+                                    <div key={os} className="text-xs bg-gray-100 p-2 rounded">
+                                      <span className="font-medium text-gray-700">{os}:</span> {instruction}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </li>
                         ))}
                       </ol>
-                    ) : (
-                      <p className="text-gray-700">{selectedTask.instructions}</p>
-                    )}
-                  </div>
+                    </div>
+                  )}
+
+                  {/* Instructions (fallback for old format) */}
+                  {!selectedTask.steps && selectedTask.instructions && (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        📋 Instructions
+                      </h3>
+                      {Array.isArray(selectedTask.instructions) ? (
+                        <ol className="list-decimal list-inside space-y-2 text-gray-700">
+                          {selectedTask.instructions.map((instruction, index) => (
+                            <li key={index} className="pl-2">{instruction}</li>
+                          ))}
+                        </ol>
+                      ) : (
+                        <p className="text-gray-700">{selectedTask.instructions}</p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Commands */}
                   {selectedTask.commands && selectedTask.commands.length > 0 && (
@@ -360,11 +417,23 @@ export default function Tasks() {
                       <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                         ⚡ Commands to Run
                       </h3>
-                      <div className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm font-mono space-y-2">
-                        {selectedTask.commands.map((command, index) => (
-                          <div key={index} className="flex items-start gap-2">
-                            <span className="text-green-400 select-none">$</span>
-                            <code className="flex-1">{command}</code>
+                      <div className="space-y-4">
+                        {selectedTask.commands.map((commandObj, index) => (
+                          <div key={index} className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
+                            <div className="flex items-start gap-2 mb-2">
+                              <span className="text-green-400 select-none">$</span>
+                              <code className="flex-1 text-sm font-mono">{commandObj.command}</code>
+                            </div>
+                            {commandObj.description && (
+                              <div className="text-xs text-gray-400 mb-2">
+                                {commandObj.description}
+                              </div>
+                            )}
+                            {commandObj.expected_output && (
+                              <div className="text-xs text-blue-300">
+                                Expected: {commandObj.expected_output}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

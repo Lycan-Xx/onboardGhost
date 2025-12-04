@@ -506,18 +506,59 @@ ${sections.map((s, i) => `${i + 1}. ${s}`).join('\n')}
    */
   async chat(
     message: string,
-    conversationHistory: Array<{ role: string; content: string }> = []
+    conversationHistory: Array<{ role: string; content: string }> = [],
+    projectContext?: {
+      name?: string;
+      purpose?: string;
+      techStack?: string[];
+      repositoryMetadata?: any;
+      analysisData?: any;
+    }
   ): Promise<string> {
-    const systemPrompt = `You are Ghost Mentor, a friendly AI assistant helping developers SET UP this project locally.
+    // Build project-specific system prompt
+    let systemPrompt = `You are Ghost Mentor, a friendly AI assistant helping developers understand and work with a specific project.
 
-Your PRIMARY GOAL: Help them get the project running on their machine and LEARN the setup process.
+Your PRIMARY GOAL: Help developers understand this project, get it running locally, and learn how to work with it effectively.`;
+
+    if (projectContext) {
+      systemPrompt += `
+
+PROJECT CONTEXT:
+- Name: ${projectContext.name || 'Unknown Project'}
+- Purpose: ${projectContext.purpose || 'Not specified'}
+- Tech Stack: ${projectContext.techStack?.join(', ') || 'Not specified'}`;
+
+      if (projectContext.repositoryMetadata) {
+        const meta = projectContext.repositoryMetadata;
+        systemPrompt += `
+- Repository: ${meta.owner || 'unknown'}/${meta.name || 'unknown'}
+- Primary Language: ${meta.language || 'Unknown'}
+- Description: ${meta.description || 'Not available'}`;
+      }
+
+      if (projectContext.analysisData) {
+        const analysis = projectContext.analysisData;
+        if (analysis.tech_stack?.framework) {
+          systemPrompt += `
+- Framework: ${analysis.tech_stack.framework}`;
+        }
+        if (analysis.database && analysis.database.length > 0) {
+          systemPrompt += `
+- Database: ${analysis.database[0].type}`;
+        }
+      }
+    }
+
+    systemPrompt += `
 
 Guidelines:
-- Focus on LOCAL SETUP questions (installation, configuration, running locally)
+- Focus on helping with THIS SPECIFIC PROJECT (not generic advice)
+- Reference actual files, dependencies, and configurations from THIS project
 - Provide code snippets when relevant (max 15 lines)
 - Explain WHY things work, not just HOW (educational approach)
 - Keep answers under 200 words unless explaining complex setup
-- Offer troubleshooting tips for common setup issues`;
+- Offer troubleshooting tips specific to this project's tech stack
+- If you don't have specific information about this project, acknowledge that and provide general guidance`;
 
     try {
       const history = [

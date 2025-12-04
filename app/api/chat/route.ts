@@ -80,32 +80,30 @@ export async function POST(request: NextRequest) {
       timestamp: new Date()
     });
 
-    // Prepare context for Gemini
-    const contextPrompt = `You are a helpful Ghost Mentor assisting a developer with understanding and onboarding to a repository.
+    // Prepare project context for Gemini
+    const projectContext = {
+      name: repoData.name || 'Unknown Project',
+      purpose: repoData.project_purpose?.purpose || 'Not specified',
+      techStack: repoData.tech_stack?.languages || [],
+      repositoryMetadata: repoData.repository_metadata || {},
+      analysisData: {
+        tech_stack: repoData.tech_stack || {},
+        database: repoData.database_requirements || [],
+        env_vars: repoData.environment_variables || [],
+        purpose: repoData.project_purpose || {},
+      }
+    };
 
-Repository Information:
-- Name: ${repoData.name || 'Unknown'}
-- Purpose: ${repoData.project_purpose?.purpose || 'Not available'}
-- Tech Stack: ${repoData.tech_stack?.languages?.join(', ') || 'Not available'}
-
-The developer has access to the repository files through the File Search tool. When answering questions:
-1. Be concise and helpful
-2. Reference specific files when relevant
-3. Provide code examples when appropriate
-4. Guide them through setup and onboarding steps
-
-User Question: ${message}`;
-
-    // Call Gemini API with File Search
+    // Call Gemini API with project context
     let assistantResponse = '';
     let fileReferences: string[] = [];
 
     try {
       const geminiClient = createGeminiClient();
-      const fileUris = geminiFiles.map((f: any) => f.uri);
-      
-      assistantResponse = await geminiClient.chat(message, fileUris);
-      
+      const conversationHistory: Array<{ role: string; content: string }> = []; // Could be loaded from chat history if needed
+
+      assistantResponse = await geminiClient.chat(message, conversationHistory, projectContext);
+
       // For now, we don't extract file references from the response
       // This could be enhanced in the future with better parsing
       fileReferences = [];
