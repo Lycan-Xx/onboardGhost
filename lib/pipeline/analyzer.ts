@@ -200,6 +200,18 @@ export class RepositoryAnalyzer {
 
     // Step 7: AI Roadmap Generation
     this.reportProgress(7, 'Roadmap Generation', 'in-progress', 'Generating onboarding roadmap...');
+
+    // Transform metadata to match Gemini's expected RepositoryMetadata interface
+    const geminiMetadata = {
+      owner: metadata.owner,
+      name: metadata.name,
+      description: metadata.description,
+      language: metadata.language,
+      size_kb: metadata.size, // Convert from 'size' to 'size_kb'
+      stars: metadata.stars,
+      default_branch: metadata.default_branch,
+    };
+
     const roadmapData = await geminiClient.generateRoadmap({
       tech_stack: techStack,
       database: databaseRequirements,
@@ -207,13 +219,32 @@ export class RepositoryAnalyzer {
       purpose: projectPurpose,
       setup_instructions: readmeContent.slice(0, 1000),
       security_issues: [],
-      repository_metadata: metadata,
+      repository_metadata: geminiMetadata,
     });
+
+    // Transform roadmap sections to match OnboardingRoadmap interface
+    const transformedSections = roadmapData.sections.map((section: any) => ({
+      id: section.id,
+      title: section.title,
+      goals: [], // Gemini doesn't provide goals, so we'll leave empty
+      tasks: section.tasks.map((task: any) => ({
+        id: task.id,
+        title: task.title,
+        description: typeof task.description === 'string' ? task.description : task.description.summary,
+        instructions: task.instructions || '',
+        code_snippet: task.code_blocks?.[0]?.content || undefined,
+        difficulty: task.difficulty === 'beginner' ? 'easy' as const :
+                   task.difficulty === 'intermediate' ? 'medium' as const : 'hard' as const,
+        completion_criteria: task.verification?.how_to_verify || '',
+        tips: task.tips?.map((tip: any) => tip.text) || [],
+        warnings: task.warnings?.map((warning: any) => warning.text) || [],
+      })),
+    }));
 
     const roadmap = {
       repo_id: metadata.id,
       generated_at: new Date(),
-      sections: roadmapData.sections,
+      sections: transformedSections,
       total_tasks: roadmapData.sections.reduce(
         (sum: number, section: any) => sum + section.tasks.length,
         0

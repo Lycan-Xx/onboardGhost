@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import GhostVisualization from '@/components/GhostVisualization';
 import GhostMentorChat from '@/components/GhostMentorChat';
@@ -70,7 +70,7 @@ interface Progress {
   ghost_solidness: number;
 }
 
-export default function Tasks() {
+function TasksContent() {
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [loading, setLoading] = useState(true);
@@ -338,7 +338,7 @@ export default function Tasks() {
                       {selectedTask.difficulty}
                     </span>
                   </div>
-                  
+
                   {/* Handle both old string format and new object format */}
                   {typeof selectedTask.description === 'string' ? (
                     <p className="text-gray-600">{selectedTask.description}</p>
@@ -362,55 +362,6 @@ export default function Tasks() {
                 </div>
 
                 <div className="space-y-6 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
-                  {/* Steps */}
-                  {selectedTask.steps && selectedTask.steps.length > 0 && (
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        📋 Steps to Follow
-                      </h3>
-                      <ol className="space-y-3">
-                        {selectedTask.steps.map((step, index) => (
-                          <li key={index} className="flex gap-3">
-                            <span className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white text-sm font-semibold rounded-full flex items-center justify-center">
-                              {step.order}
-                            </span>
-                            <div className="flex-1">
-                              <p className="text-gray-700 font-medium">{step.action}</p>
-                              <p className="text-gray-600 text-sm mt-1">{step.details}</p>
-                              {step.os_specific && Object.keys(step.os_specific).length > 0 && (
-                                <div className="mt-2 space-y-1">
-                                  {Object.entries(step.os_specific).map(([os, instruction]) => (
-                                    <div key={os} className="text-xs bg-gray-100 p-2 rounded">
-                                      <span className="font-medium text-gray-700">{os}:</span> {instruction}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  )}
-
-                  {/* Instructions (fallback for old format) */}
-                  {!selectedTask.steps && selectedTask.instructions && (
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        📋 Instructions
-                      </h3>
-                      {Array.isArray(selectedTask.instructions) ? (
-                        <ol className="list-decimal list-inside space-y-2 text-gray-700">
-                          {selectedTask.instructions.map((instruction, index) => (
-                            <li key={index} className="pl-2">{instruction}</li>
-                          ))}
-                        </ol>
-                      ) : (
-                        <p className="text-gray-700">{selectedTask.instructions}</p>
-                      )}
-                    </div>
-                  )}
-
                   {/* Commands */}
                   {selectedTask.commands && selectedTask.commands.length > 0 && (
                     <div>
@@ -436,44 +387,6 @@ export default function Tasks() {
                             )}
                           </div>
                         ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Code Snippets */}
-                  {selectedTask.code_snippets && selectedTask.code_snippets.length > 0 && (
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        💻 Code to Write
-                      </h3>
-                      <div className="space-y-3">
-                        {selectedTask.code_snippets.map((snippet, index) => {
-                          // Handle both string and object formats
-                          if (typeof snippet === 'string') {
-                            return (
-                              <div key={index} className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
-                                <pre className="text-sm font-mono">
-                                  <code>{snippet}</code>
-                                </pre>
-                              </div>
-                            );
-                          } else if (snippet && typeof snippet === 'object') {
-                            // Handle object format: {file, language, code}
-                            return (
-                              <div key={index} className="bg-gray-900 text-gray-100 rounded-lg overflow-hidden">
-                                {snippet.file && (
-                                  <div className="bg-gray-800 px-4 py-2 text-xs text-gray-400 border-b border-gray-700">
-                                    📄 {snippet.file}
-                                  </div>
-                                )}
-                                <pre className="p-4 text-sm font-mono overflow-x-auto">
-                                  <code>{snippet.code || JSON.stringify(snippet)}</code>
-                                </pre>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })}
                       </div>
                     </div>
                   )}
@@ -568,5 +481,20 @@ export default function Tasks() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Tasks() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading tasks...</p>
+        </div>
+      </div>
+    }>
+      <TasksContent />
+    </Suspense>
   );
 }
