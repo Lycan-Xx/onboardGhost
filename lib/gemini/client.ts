@@ -123,7 +123,7 @@ Project Purpose: ${analysisData.purpose?.purpose || 'Not specified'}
 ${projectContext}
 
 === YOUR MISSION ===
-This is NOT a generic tutorial. This is a guide for THIS EXACT PROJECT: ${analysisData.repository_metadata.name}
+This is NOT a generic tutorial. This is a guide for THIS EXACT PROJECT: ${analysisData.repository_metadata?.name || 'this project'}
 
 Requirements:
 - Reference ACTUAL file paths from THIS project (e.g., "prisma/schema.prisma", "src/config/database.ts")
