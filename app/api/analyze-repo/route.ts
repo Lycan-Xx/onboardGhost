@@ -52,14 +52,22 @@ export async function POST(request: NextRequest) {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
         if (analyzedAt && analyzedAt > thirtyDaysAgo) {
-          // Return cached result
-          console.log(`[API ${requestId}] ✅ Cache HIT - Using cached analysis from ${analyzedAt.toISOString()}\n`);
-          return NextResponse.json({
-            success: true,
-            repoId,
-            message: 'Using cached analysis',
-            cached: true,
-          });
+          // Check if roadmap exists
+          const roadmapRef = adminDb.collection('roadmaps').doc(repoId);
+          const roadmapDoc = await roadmapRef.get();
+          
+          if (roadmapDoc.exists) {
+            // Return cached result
+            console.log(`[API ${requestId}] ✅ Cache HIT - Using cached analysis from ${analyzedAt.toISOString()}\n`);
+            return NextResponse.json({
+              success: true,
+              repoId,
+              message: 'Using cached analysis',
+              cached: true,
+            });
+          } else {
+            console.log(`[API ${requestId}] ⚠️  Cache exists but roadmap missing - Re-analyzing`);
+          }
         } else {
           console.log(`[API ${requestId}] ⚠️  Cache EXPIRED - Re-analyzing`);
         }
@@ -115,6 +123,9 @@ export async function POST(request: NextRequest) {
 
     // Store roadmap
     const roadmapRef = adminDb.collection('roadmaps').doc(repoId);
+    console.log(`[API ${requestId}] Storing roadmap with ${analysis.roadmap.sections?.length || 0} sections`);
+    console.log(`[API ${requestId}] Total tasks: ${analysis.roadmap.total_tasks}`);
+    
     await roadmapRef.set({
       ...analysis.roadmap,
       generated_at: new Date(),

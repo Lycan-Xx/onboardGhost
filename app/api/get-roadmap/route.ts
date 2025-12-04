@@ -37,6 +37,11 @@ export async function GET(request: NextRequest) {
       ghost_solidness: 0,
     };
 
+    console.log(`[GET-ROADMAP] Retrieved roadmap for ${repoId}`);
+    console.log(`[GET-ROADMAP] Sections count: ${roadmap?.sections?.length || 0}`);
+    console.log(`[GET-ROADMAP] Total tasks: ${roadmap?.total_tasks || 0}`);
+    console.log(`[GET-ROADMAP] First section:`, roadmap?.sections?.[0]);
+
     return NextResponse.json({
       success: true,
       roadmap,

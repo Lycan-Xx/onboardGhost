@@ -1,10 +1,20 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import GhostVisualization from '@/components/GhostVisualization';
 import GhostMentorChat from '@/components/GhostMentorChat';
 import Link from 'next/link';
+import { 
+  TaskCard, 
+  TaskSteps, 
+  CommandBlocks, 
+  CodeBlocks, 
+  TipsSection, 
+  WarningsSection, 
+  ReferencesSection,
+  VerificationSection 
+} from '@/components/TaskComponents';
 
 interface TaskDescription {
   summary: string;
@@ -12,24 +22,67 @@ interface TaskDescription {
   learning_goal: string;
 }
 
-interface TaskCommand {
-  command: string;
-  description: string;
-  expected_output: string;
-  os: string;
+interface OSSpecific {
+  mac?: string;
+  windows?: string;
+  linux?: string;
 }
 
 interface TaskStep {
   order: number;
   action: string;
   details: string;
-  os_specific?: Record<string, string>;
+  os_specific: OSSpecific | null;
 }
 
-interface TaskVerification {
+interface CommandBlock {
+  command: string;
+  description: string;
+  expected_output: string;
+  os: 'all' | 'mac' | 'windows' | 'linux';
+}
+
+interface CodeBlock {
+  type: 'file_content' | 'snippet' | 'configuration';
+  file_path?: string;
+  language: string;
+  content: string;
+  explanation: string;
+  highlights?: Array<{
+    line: number;
+    text: string;
+    type: 'info' | 'warning' | 'error';
+  }>;
+}
+
+interface Reference {
+  text: string;
+  url: string;
+  type: 'documentation' | 'tutorial' | 'tool' | 'external';
+  relevance: string;
+}
+
+interface Tip {
+  text: string;
+  type: 'pro_tip' | 'beginner_friendly' | 'time_saver';
+  emphasis: string[];
+}
+
+interface Warning {
+  text: string;
+  severity: 'critical' | 'important' | 'minor';
+  os_specific: boolean;
+  emphasis: string[];
+}
+
+interface Verification {
   how_to_verify: string;
   expected_result: string;
-  troubleshooting: string[];
+  troubleshooting: Array<{
+    problem: string;
+    solution: string;
+    command: string | null;
+  }>;
 }
 
 interface Task {
@@ -38,16 +91,16 @@ interface Task {
   description: string | TaskDescription;
   instructions?: string | string[];
   steps?: TaskStep[];
-  commands?: TaskCommand[];
+  commands?: string[] | CommandBlock[];
   code_snippets?: (string | { file?: string; language?: string; code: string })[];
-  tips?: string[];
-  warnings?: string[];
-  difficulty: 'easy' | 'medium' | 'hard';
+  code_blocks?: CodeBlock[];
+  references?: Reference[];
+  tips?: string[] | Tip[];
+  warnings?: string[] | Warning[];
+  verification?: Verification;
+  difficulty: 'beginner' | 'intermediate' | 'advanced' | 'easy' | 'medium' | 'hard';
   estimated_time: string;
-  dependencies?: string[];
-  verification?: TaskVerification;
   depends_on?: string[];
-  references?: string[];
 }
 
 interface Section {
@@ -70,7 +123,7 @@ interface Progress {
   ghost_solidness: number;
 }
 
-function TasksContent() {
+export default function Tasks() {
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [loading, setLoading] = useState(true);
@@ -173,12 +226,20 @@ function TasksContent() {
     }
   };
 
+  const normalizeDifficulty = (difficulty: string): 'easy' | 'medium' | 'hard' => {
+    if (difficulty === 'beginner') return 'easy';
+    if (difficulty === 'intermediate') return 'medium';
+    if (difficulty === 'advanced') return 'hard';
+    return difficulty as 'easy' | 'medium' | 'hard';
+  };
+
   const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'easy': return 'bg-green-100 text-green-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'hard': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+    const normalized = normalizeDifficulty(difficulty);
+    switch (normalized) {
+      case 'easy': return 'bg-green-900/30 text-green-400 border-green-500/30';
+      case 'medium': return 'bg-yellow-900/30 text-yellow-400 border-yellow-500/30';
+      case 'hard': return 'bg-red-900/30 text-red-400 border-red-500/30';
+      default: return 'bg-gray-800/30 text-gray-400 border-gray-500/30';
     }
   };
 
@@ -191,10 +252,10 @@ function TasksContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading roadmap...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-pink-500 mx-auto mb-4"></div>
+          <p className="text-gray-400 text-lg">Summoning your roadmap...</p>
         </div>
       </div>
     );
@@ -202,15 +263,15 @@ function TasksContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.href = '/dashboard'}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
-          >
-            Back to Dashboard
-          </button>
+          <div className="text-6xl mb-4">👻</div>
+          <p className="text-red-400 mb-6 text-lg">{error}</p>
+          <Link href="/dashboard">
+            <button className="bg-pink-600 hover:bg-pink-700 text-white px-6 py-3 rounded-lg font-semibold transition-all">
+              Back to Dashboard
+            </button>
+          </Link>
         </div>
       </div>
     );
@@ -218,36 +279,46 @@ function TasksContent() {
 
   if (!roadmap) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">No roadmap found</p>
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <p className="text-gray-400 text-lg">No roadmap found</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-[#0a0a0f] text-gray-100 pb-24">
       {/* Header */}
-      <div className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
+      <div className="bg-[#12121a] border-b border-gray-800/50 sticky top-0 z-10 backdrop-blur-sm bg-opacity-95">
+        <div className="container mx-auto px-6 py-4">
           <div className="flex justify-between items-center mb-4">
-            <Link href="/dashboard" className="text-purple-600 hover:text-purple-700 text-sm flex items-center gap-1">
-              ← Back to Dashboard
+            <Link 
+              href="/dashboard" 
+              className="text-pink-400 hover:text-pink-300 text-sm flex items-center gap-2 transition-colors group"
+            >
+              <span className="transform group-hover:-translate-x-1 transition-transform">←</span>
+              <span>Dashboard</span>
             </Link>
-            <Link href="/profile" className="text-gray-600 hover:text-gray-700">
-              <span className="text-2xl">👤</span>
+            <Link 
+              href="/profile" 
+              className="text-gray-400 hover:text-pink-400 transition-colors"
+            >
+              <span className="text-3xl">👤</span>
             </Link>
           </div>
 
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{roadmap.repository_name}</h1>
-              <p className="text-gray-600 text-sm">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-3xl">👻</span>
+                <h1 className="text-3xl font-bold text-white">{roadmap.repository_name}</h1>
+              </div>
+              <p className="text-gray-400 text-sm">
                 {roadmap.total_tasks} tasks • {roadmap.estimated_completion_time}
               </p>
             </div>
 
             {/* Ghost Visualization */}
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 ml-6">
               <GhostVisualization
                 progress={progress?.overall_progress_percentage || 0}
                 showCelebration={showCelebration}
@@ -256,14 +327,16 @@ function TasksContent() {
           </div>
 
           {/* Progress Bar */}
-          <div className="mt-4">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>Overall Progress</span>
-              <span>{progress?.overall_progress_percentage || 0}% Complete</span>
+          <div className="mt-6">
+            <div className="flex justify-between text-sm text-gray-400 mb-2">
+              <span>Progress</span>
+              <span className="text-pink-400 font-semibold">
+                {progress?.overall_progress_percentage || 0}% Complete
+              </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-800/50 rounded-full h-2.5 overflow-hidden">
               <div
-                className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-pink-600 to-pink-500 h-2.5 rounded-full transition-all duration-500 ease-out shadow-lg shadow-pink-500/50"
                 style={{ width: `${progress?.overall_progress_percentage || 0}%` }}
               />
             </div>
@@ -272,55 +345,98 @@ function TasksContent() {
       </div>
 
       {/* Two-Pane Layout */}
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left Pane - Task Checklist */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm p-4 sticky top-[200px]">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Tasks Checklist</h2>
-              <div className="space-y-1 max-h-[calc(100vh-350px)] overflow-y-auto">
+            <div className="bg-[#12121a] border border-gray-800/50 rounded-lg p-5 sticky top-[220px] max-h-[calc(100vh-260px)] overflow-y-auto custom-scrollbar">
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <span className="text-pink-400">📋</span>
+                Tasks Checklist
+              </h2>
+              <div className="space-y-1">
                 {roadmap.sections.map((section) => (
-                  <div key={section.id} className="mb-4">
-                    <h3 className="text-sm font-medium text-gray-500 mb-2 px-2">{section.title}</h3>
-                    {section.tasks.map((task) => {
-                      const isCompleted = isTaskCompleted(task.id);
-                      const isSelected = selectedTaskId === task.id;
+                  <div key={section.id} className="mb-6">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
+                      {section.title}
+                    </h3>
+                    <div className="space-y-1">
+                      {section.tasks.map((task) => {
+                        const isCompleted = isTaskCompleted(task.id);
+                        const isSelected = selectedTaskId === task.id;
 
-                      return (
-                        <button
-                          key={task.id}
-                          onClick={() => setSelectedTaskId(task.id)}
-                          className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
-                            isSelected
-                              ? 'bg-purple-50 border-2 border-purple-600'
-                              : 'hover:bg-gray-50 border-2 border-transparent'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isCompleted}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              handleTaskToggle(task.id, e.target.checked);
-                            }}
-                            className="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded cursor-pointer"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium ${isCompleted ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                              {task.title}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getDifficultyColor(task.difficulty)}`}>
-                                {task.difficulty}
-                              </span>
-                              {task.estimated_time && (
-                                <span className="text-xs text-gray-500">{task.estimated_time}</span>
+                        return (
+                          <button
+                            key={task.id}
+                            onClick={() => setSelectedTaskId(task.id)}
+                            className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all group ${
+                              isSelected
+                                ? 'bg-pink-600/10 border-2 border-pink-500/50 shadow-lg shadow-pink-500/10'
+                                : 'hover:bg-gray-800/50 border-2 border-transparent hover:border-gray-700/50'
+                            }`}
+                          >
+                            {/* Custom Checkbox */}
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTaskToggle(task.id, !isCompleted);
+                              }}
+                              className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-all ${
+                                isCompleted
+                                  ? 'bg-pink-600 border-pink-500'
+                                  : 'border-gray-600 hover:border-pink-500'
+                              }`}
+                            >
+                              {isCompleted && (
+                                <svg
+                                  className="w-3 h-3 text-white"
+                                  fill="none"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path d="M5 13l4 4L19 7" />
+                                </svg>
                               )}
                             </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+
+                            <div className="flex-1 min-w-0">
+                              <p
+                                className={`text-sm font-medium mb-1 ${
+                                  isCompleted
+                                    ? 'line-through text-gray-500'
+                                    : 'text-gray-200 group-hover:text-white'
+                                }`}
+                              >
+                                {task.title}
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`px-2 py-0.5 text-xs font-medium rounded border ${getDifficultyColor(
+                                    task.difficulty
+                                  )}`}
+                                >
+                                  {normalizeDifficulty(task.difficulty)}
+                                </span>
+                                {task.estimated_time && (
+                                  <span className="text-xs text-gray-500">
+                                    {task.estimated_time}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {isSelected && (
+                              <div className="flex-shrink-0">
+                                <div className="w-1.5 h-8 bg-pink-500 rounded-full"></div>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -330,105 +446,181 @@ function TasksContent() {
           {/* Right Pane - Task Details */}
           <div className="lg:col-span-3">
             {selectedTask ? (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="mb-6">
-                  <div className="flex items-start justify-between mb-2">
-                    <h2 className="text-2xl font-bold text-gray-900">{selectedTask.title}</h2>
-                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${getDifficultyColor(selectedTask.difficulty)}`}>
-                      {selectedTask.difficulty}
+              <div className="bg-[#12121a] border border-gray-800/50 rounded-lg p-6">
+                {/* Task Header */}
+                <div className="mb-6 pb-6 border-b border-gray-800/50">
+                  <div className="flex items-start justify-between mb-3">
+                    <h2 className="text-2xl font-bold text-white pr-4">
+                      {selectedTask.title}
+                    </h2>
+                    <span
+                      className={`px-3 py-1.5 text-sm font-semibold rounded-lg border whitespace-nowrap ${getDifficultyColor(
+                        selectedTask.difficulty
+                      )}`}
+                    >
+                      {normalizeDifficulty(selectedTask.difficulty)}
                     </span>
                   </div>
 
-                  {/* Handle both old string format and new object format */}
+                  {/* Task Description - Enhanced Format */}
                   {typeof selectedTask.description === 'string' ? (
-                    <p className="text-gray-600">{selectedTask.description}</p>
+                    <p className="text-gray-400 text-base leading-relaxed">
+                      {selectedTask.description}
+                    </p>
                   ) : (
-                    <div className="space-y-3">
-                      <p className="text-gray-700 text-lg">{selectedTask.description.summary}</p>
+                    <div className="space-y-4">
+                      <p className="text-gray-300 text-base leading-relaxed">
+                        {selectedTask.description.summary}
+                      </p>
+
                       {selectedTask.description.why_needed && (
-                        <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded">
-                          <p className="text-sm font-semibold text-blue-900 mb-1">Why this matters:</p>
-                          <p className="text-sm text-blue-800">{selectedTask.description.why_needed}</p>
+                        <div className="bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                          <p className="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-1.5">
+                            Why This Matters
+                          </p>
+                          <p className="text-sm text-blue-300 leading-relaxed">
+                            {selectedTask.description.why_needed}
+                          </p>
                         </div>
                       )}
+
                       {selectedTask.description.learning_goal && (
-                        <div className="bg-green-50 border-l-4 border-green-500 p-3 rounded">
-                          <p className="text-sm font-semibold text-green-900 mb-1">What you'll learn:</p>
-                          <p className="text-sm text-green-800">{selectedTask.description.learning_goal}</p>
+                        <div className="bg-green-900/20 border-l-4 border-green-500 p-4 rounded-r-lg">
+                          <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-1.5">
+                            What You'll Learn
+                          </p>
+                          <p className="text-sm text-green-300 leading-relaxed">
+                            {selectedTask.description.learning_goal}
+                          </p>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-6 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
-                  {/* Commands */}
-                  {selectedTask.commands && selectedTask.commands.length > 0 && (
+                {/* Task Content */}
+                <div className="space-y-6 max-h-[calc(100vh-450px)] overflow-y-auto pr-2 custom-scrollbar">
+                  {/* Render Steps (New Format) */}
+                  {selectedTask.steps && selectedTask.steps.length > 0 && (
+                    <TaskSteps steps={selectedTask.steps} />
+                  )}
+
+                  {/* Fallback to Instructions (Old Format) */}
+                  {!selectedTask.steps && selectedTask.instructions && (
                     <div>
-                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        ⚡ Commands to Run
+                      <h3 className="font-semibold text-white mb-3 flex items-center gap-2 text-lg">
+                        <span className="text-pink-400">📋</span>
+                        Instructions
                       </h3>
-                      <div className="space-y-4">
-                        {selectedTask.commands.map((commandObj, index) => (
-                          <div key={index} className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
-                            <div className="flex items-start gap-2 mb-2">
-                              <span className="text-green-400 select-none">$</span>
-                              <code className="flex-1 text-sm font-mono">{commandObj.command}</code>
-                            </div>
-                            {commandObj.description && (
-                              <div className="text-xs text-gray-400 mb-2">
-                                {commandObj.description}
-                              </div>
-                            )}
-                            {commandObj.expected_output && (
-                              <div className="text-xs text-blue-300">
-                                Expected: {commandObj.expected_output}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                      {Array.isArray(selectedTask.instructions) ? (
+                        <ol className="list-decimal list-inside space-y-3 text-gray-300">
+                          {selectedTask.instructions.map((instruction, index) => (
+                            <li key={index} className="pl-2 leading-relaxed">
+                              {instruction}
+                            </li>
+                          ))}
+                        </ol>
+                      ) : (
+                        <p className="text-gray-300 leading-relaxed">
+                          {selectedTask.instructions}
+                        </p>
+                      )}
                     </div>
+                  )}
+
+                  {/* Commands (New Format) */}
+                  {selectedTask.commands && selectedTask.commands.length > 0 && (
+                    <CommandBlocks commands={selectedTask.commands} />
+                  )}
+
+                  {/* Code Blocks (New Enhanced Format) */}
+                  {selectedTask.code_blocks && selectedTask.code_blocks.length > 0 && (
+                    <CodeBlocks codeBlocks={selectedTask.code_blocks} />
+                  )}
+
+                  {/* Code Snippets (Old Format - Fallback) */}
+                  {!selectedTask.code_blocks &&
+                    selectedTask.code_snippets &&
+                    selectedTask.code_snippets.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold text-white mb-3 flex items-center gap-2 text-lg">
+                          <span className="text-pink-400">💻</span>
+                          Code
+                        </h3>
+                        <div className="space-y-3">
+                          {selectedTask.code_snippets.map((snippet, index) => {
+                            if (typeof snippet === 'string') {
+                              return (
+                                <div
+                                  key={index}
+                                  className="bg-[#0a0a0f] border border-gray-800 rounded-lg overflow-hidden"
+                                >
+                                  <pre className="p-4 text-sm font-mono overflow-x-auto custom-scrollbar">
+                                    <code className="text-gray-300">{snippet}</code>
+                                  </pre>
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div
+                                  key={index}
+                                  className="bg-[#0a0a0f] border border-gray-800 rounded-lg overflow-hidden"
+                                >
+                                  {snippet.file && (
+                                    <div className="bg-gray-900/50 px-4 py-2 text-xs text-gray-400 border-b border-gray-800 font-mono flex items-center gap-2">
+                                      <span className="text-pink-400">📄</span>
+                                      {snippet.file}
+                                    </div>
+                                  )}
+                                  <pre className="p-4 text-sm font-mono overflow-x-auto custom-scrollbar">
+                                    <code className="text-gray-300">
+                                      {snippet.code || JSON.stringify(snippet)}
+                                    </code>
+                                  </pre>
+                                </div>
+                              );
+                            }
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                  {/* References (New Format) */}
+                  {selectedTask.references && selectedTask.references.length > 0 && (
+                    <ReferencesSection references={selectedTask.references} />
                   )}
 
                   {/* Tips */}
                   {selectedTask.tips && selectedTask.tips.length > 0 && (
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        💡 Tips
-                      </h3>
-                      <ul className="list-disc list-inside space-y-2 text-blue-700 bg-blue-50 p-4 rounded-lg">
-                        {selectedTask.tips.map((tip, index) => (
-                          <li key={index} className="pl-2">{tip}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    <TipsSection tips={selectedTask.tips} />
                   )}
 
                   {/* Warnings */}
                   {selectedTask.warnings && selectedTask.warnings.length > 0 && (
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        ⚠️ Warnings
-                      </h3>
-                      <ul className="list-disc list-inside space-y-2 text-red-700 bg-red-50 p-4 rounded-lg">
-                        {selectedTask.warnings.map((warning, index) => (
-                          <li key={index} className="pl-2">{warning}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    <WarningsSection warnings={selectedTask.warnings} />
+                  )}
+
+                  {/* Verification (New Format) */}
+                  {selectedTask.verification && (
+                    <VerificationSection verification={selectedTask.verification} />
                   )}
                 </div>
 
                 {/* Mark Complete Button */}
-                <div className="mt-6 pt-6 border-t flex justify-end">
+                <div className="mt-8 pt-6 border-t border-gray-800/50 flex justify-end">
                   <button
-                    onClick={() => handleTaskToggle(selectedTask.id, !isTaskCompleted(selectedTask.id))}
-                    className={`px-6 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                    onClick={() =>
+                      handleTaskToggle(
+                        selectedTask.id,
+                        !isTaskCompleted(selectedTask.id)
+                      )
+                    }
+                    className={`px-8 py-3 rounded-lg font-semibold transition-all flex items-center gap-2 text-base ${
                       isTaskCompleted(selectedTask.id)
-                        ? 'bg-gray-200 text-gray-600 cursor-default'
-                        : 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg hover:shadow-xl'
+                        ? 'bg-gray-800/50 text-gray-500 cursor-not-allowed border border-gray-700'
+                        : 'bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-700 hover:to-pink-600 text-white shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50'
                     }`}
+                    disabled={isTaskCompleted(selectedTask.id)}
                   >
                     {isTaskCompleted(selectedTask.id) ? (
                       <>
@@ -438,63 +630,83 @@ function TasksContent() {
                     ) : (
                       <>
                         Mark as Complete
-                        <span>→</span>
+                        <span className="transform group-hover:translate-x-1 transition-transform">
+                          →
+                        </span>
                       </>
                     )}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm p-6 text-center text-gray-500">
-                Select a task from the checklist to view details
+              <div className="bg-[#12121a] border border-gray-800/50 rounded-lg p-12 text-center">
+                <div className="text-6xl mb-4">👻</div>
+                <p className="text-gray-400 text-lg">
+                  Select a task from the checklist to begin
+                </p>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Ghost Mentor Chat - Fixed at bottom */}
+      {/* Ghost Mentor Chat - Floating Button */}
       {repoId && !chatOpen && (
-        <div className="fixed bottom-6 right-6 z-40">
+        <div className="fixed bottom-8 right-8 z-40">
           <button
             onClick={() => setChatOpen(true)}
-            className="flex items-center gap-2 px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all"
+            className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-700 hover:to-pink-600 text-white rounded-full shadow-2xl shadow-pink-500/50 hover:shadow-pink-500/70 transition-all hover:scale-105 group"
           >
-            <span className="text-xl">👻</span>
-            <span className="font-semibold">Ask Ghost Mentor</span>
+            <span className="text-2xl animate-bounce">👻</span>
+            <span className="font-semibold text-base">Ask Ghost Mentor</span>
           </button>
         </div>
       )}
 
       {/* Ghost Mentor Chat Component */}
       {repoId && chatOpen && (
-        <div className="fixed bottom-0 right-0 w-full md:w-[500px] h-[600px] z-50">
+        <div className="fixed bottom-0 right-0 w-full md:w-[550px] h-[650px] z-50 shadow-2xl">
           <div className="relative h-full">
             <button
               onClick={() => setChatOpen(false)}
-              className="absolute -top-10 right-4 bg-white hover:bg-gray-100 text-gray-600 rounded-full p-2 shadow-lg transition-colors"
+              className="absolute -top-12 right-4 bg-[#12121a] hover:bg-gray-800 text-gray-400 hover:text-white rounded-full p-3 shadow-xl border border-gray-800 transition-all"
             >
-              <span className="text-xl">✕</span>
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
             <GhostMentorChat repoId={repoId} userId="demo-user" />
           </div>
         </div>
       )}
-    </div>
-  );
-}
 
-export default function Tasks() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading tasks...</p>
-        </div>
-      </div>
-    }>
-      <TasksContent />
-    </Suspense>
+      {/* Custom Scrollbar Styles */}
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(236, 72, 153, 0.3);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(236, 72, 153, 0.5);
+        }
+      `}</style>
+    </div>
   );
 }

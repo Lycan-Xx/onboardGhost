@@ -232,7 +232,7 @@ export class RepositoryAnalyzer {
         title: task.title,
         description: typeof task.description === 'string' ? task.description : task.description.summary,
         instructions: task.instructions || '',
-        code_snippet: task.code_blocks?.[0]?.content || undefined,
+        code_snippet: task.code_blocks?.[0]?.content || null,
         difficulty: task.difficulty === 'beginner' ? 'easy' as const :
                    task.difficulty === 'intermediate' ? 'medium' as const : 'hard' as const,
         completion_criteria: task.verification?.how_to_verify || '',
