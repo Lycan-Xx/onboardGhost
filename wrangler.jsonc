@@ -1,0 +1,11 @@
+{
+  "name": "onboard-ghost",
+  "compatibility_date": "2024-12-04",
+  "assets": {
+    "directory": ".next/static",
+    "binding": "ASSETS"
+  },
+  "build": {
+    "command": "npm run build"
+  }
+}
