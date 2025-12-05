@@ -174,16 +174,8 @@ function DashboardContent() {
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white">OnboardGhost</h1>
           
-          {/* GitHub Auth Button */}
-          {!hasGitHubToken && isAuthenticated ? (
-            <button
-              onClick={initiateGitHubAuth}
-              className="flex items-center gap-2 px-4 py-2 bg-pink-500 text-[#0a0a0f] font-semibold rounded-lg hover:bg-pink-600 transition-colors"
-            >
-              <span className="material-symbols-outlined">lock</span>
-              <span>Sign in with GitHub</span>
-            </button>
-          ) : hasGitHubToken ? (
+          {/* GitHub Auth Button / Profile Link */}
+          {hasGitHubToken ? (
             <Link 
               href="/profile" 
               className="flex items-center gap-2 text-gray-400 hover:text-pink-400 transition-colors"
@@ -191,7 +183,15 @@ function DashboardContent() {
               <span className="material-symbols-outlined">account_circle</span>
               <span>Profile</span>
             </Link>
-          ) : null}
+          ) : (
+            <button
+              onClick={initiateGitHubAuth}
+              className="flex items-center gap-2 px-4 py-2 bg-pink-500 text-[#0a0a0f] font-semibold rounded-lg hover:bg-pink-600 transition-colors"
+            >
+              <span className="material-symbols-outlined">lock</span>
+              <span>Sign in with GitHub</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -352,7 +352,7 @@ function DashboardContent() {
         )}
 
         {/* Not Authenticated Message */}
-        {!hasGitHubToken && isAuthenticated && (
+        {!hasGitHubToken && (
           <div className="max-w-2xl mx-auto text-center py-12 bg-[#1e293b] border border-gray-700 rounded-lg">
             <span className="material-symbols-outlined text-6xl text-pink-500 mb-4">psychology</span>
             <h3 className="text-xl font-bold text-white mb-2">
