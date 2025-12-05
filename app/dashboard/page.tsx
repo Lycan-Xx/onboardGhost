@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import FirebaseDebug from '@/components/FirebaseDebug';
 
 interface Analysis {
   repoId: string;
@@ -19,7 +18,7 @@ interface Analysis {
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading, isAuthenticated, hasGitHubToken, signInAnonymous, initiateGitHubAuth } = useAuth();
+  const { user, loading: authLoading, isAuthenticated, hasGitHubToken, githubUser, signInAnonymous, initiateGitHubAuth } = useAuth();
   
   const [repoUrl, setRepoUrl] = useState('');
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
@@ -27,6 +26,11 @@ function DashboardContent() {
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [repositories, setRepositories] = useState<any[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(false);
+  const [repoSearch, setRepoSearch] = useState('');
+  const [showRepoDropdown, setShowRepoDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Handle OAuth callback
   useEffect(() => {
@@ -53,10 +57,11 @@ function DashboardContent() {
     }
   }, [authLoading, isAuthenticated]);
 
-  // Fetch user's analyses
+  // Fetch user's analyses and repositories
   useEffect(() => {
     if (isAuthenticated && hasGitHubToken) {
       fetchAnalyses();
+      fetchRepositories();
     }
   }, [isAuthenticated, hasGitHubToken]);
 
@@ -77,6 +82,26 @@ function DashboardContent() {
       console.error('Error fetching analyses:', err);
     } finally {
       setLoadingAnalyses(false);
+    }
+  };
+
+  const fetchRepositories = async () => {
+    if (!user) return;
+
+    setLoadingRepos(true);
+    try {
+      const response = await fetch(`/api/github/repos?userId=${user.uid}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setRepositories(data.repositories || []);
+      } else {
+        console.error('Failed to fetch repositories:', data.error);
+      }
+    } catch (err) {
+      console.error('Error fetching repositories:', err);
+    } finally {
+      setLoadingRepos(false);
     }
   };
 
@@ -156,15 +181,17 @@ function DashboardContent() {
     router.push(`/tasks?repoId=${repoId}`);
   };
 
-  // Debug logging
+  // Close dropdown when clicking outside
   useEffect(() => {
-    console.log('Dashboard Auth State:', {
-      authLoading,
-      isAuthenticated,
-      hasGitHubToken,
-      user: user?.uid || 'none'
-    });
-  }, [authLoading, isAuthenticated, hasGitHubToken, user]);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowRepoDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (authLoading) {
     return (
@@ -185,13 +212,19 @@ function DashboardContent() {
           <h1 className="text-2xl font-bold text-white">OnboardGhost</h1>
           
           {/* GitHub Auth Button / Profile Link */}
-          {hasGitHubToken ? (
+          {hasGitHubToken && githubUser ? (
             <Link 
               href="/profile" 
-              className="flex items-center gap-2 text-gray-400 hover:text-pink-400 transition-colors"
+              className="flex items-center gap-3 px-4 py-2 bg-[#1e293b] border border-gray-700 rounded-lg hover:border-pink-500/50 transition-all group"
             >
-              <span className="material-symbols-outlined">account_circle</span>
-              <span>Profile</span>
+              <img 
+                src={githubUser.avatar} 
+                alt={githubUser.username}
+                className="w-8 h-8 rounded-full"
+              />
+              <span className="text-white group-hover:text-pink-400 transition-colors">
+                {githubUser.name}
+              </span>
             </Link>
           ) : (
             <button
@@ -224,12 +257,67 @@ function DashboardContent() {
             {/* Show dropdown only for authenticated users */}
             {hasGitHubToken && (
               <>
-                <div className="relative w-full sm:w-auto">
-                  <select
-                    className="w-full sm:w-64 px-4 py-3 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                  >
-                    <option>Choose from your repositories</option>
-                  </select>
+                <div ref={dropdownRef} className="relative w-full sm:w-80">
+                  <input
+                    type="text"
+                    value={repoSearch}
+                    onChange={(e) => {
+                      setRepoSearch(e.target.value);
+                      setShowRepoDropdown(true);
+                    }}
+                    onFocus={() => setShowRepoDropdown(true)}
+                    placeholder="Search your repositories..."
+                    className="w-full px-4 py-3 bg-[#1e293b] border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                    disabled={loadingRepos}
+                  />
+                  
+                  {/* Dropdown */}
+                  {showRepoDropdown && repositories.length > 0 && (
+                    <div className="absolute z-10 w-full mt-2 bg-[#1e293b] border border-gray-700 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                      {repositories
+                        .filter(repo => 
+                          repo.fullName.toLowerCase().includes(repoSearch.toLowerCase()) ||
+                          repo.description?.toLowerCase().includes(repoSearch.toLowerCase())
+                        )
+                        .slice(0, 10)
+                        .map(repo => (
+                          <button
+                            key={repo.id}
+                            onClick={() => {
+                              setRepoUrl(repo.url);
+                              setRepoSearch(repo.fullName);
+                              setShowRepoDropdown(false);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-pink-500/10 transition-colors border-b border-gray-700 last:border-b-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-medium">{repo.fullName}</span>
+                              {repo.private && (
+                                <span className="text-xs px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded">
+                                  Private
+                                </span>
+                              )}
+                            </div>
+                            {repo.description && (
+                              <p className="text-sm text-gray-400 mt-1 truncate">
+                                {repo.description}
+                              </p>
+                            )}
+                            {repo.language && (
+                              <span className="text-xs text-gray-500 mt-1 inline-block">
+                                {repo.language}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                  
+                  {loadingRepos && (
+                    <div className="absolute right-3 top-3">
+                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-pink-500"></div>
+                    </div>
+                  )}
                 </div>
                 <span className="text-gray-500">OR</span>
               </>
@@ -366,13 +454,13 @@ function DashboardContent() {
           <div className="max-w-2xl mx-auto text-center py-12 bg-[#1e293b] border border-gray-700 rounded-lg">
             <span className="material-symbols-outlined text-6xl text-pink-500 mb-4">psychology</span>
             <h3 className="text-xl font-bold text-white mb-2">
-              Want to save your progress?
+              Sign in to unlock full features
             </h3>
             <p className="text-gray-400 mb-2">
               You can analyze public repositories without signing in, but your progress won't be saved.
             </p>
             <p className="text-gray-400 mb-6">
-              Sign in with GitHub to access private repositories and save up to 2 analyses.
+              Sign in with GitHub to save your analyses, track progress, and access private repositories.
             </p>
             <button
               onClick={initiateGitHubAuth}
@@ -384,9 +472,6 @@ function DashboardContent() {
           </div>
         )}
       </main>
-
-      {/* Debug Component (only in development) */}
-      <FirebaseDebug />
     </div>
   );
 }

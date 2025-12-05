@@ -10,11 +10,18 @@ import {
 import { auth, db } from '@/lib/firebase/config';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
+interface GitHubUser {
+  username: string;
+  avatar: string;
+  name: string;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
   hasGitHubToken: boolean;
+  githubUser: GitHubUser | null;
   signInAnonymous: () => Promise<void>;
   signOut: () => Promise<void>;
   initiateGitHubAuth: () => void;
@@ -27,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasGitHubToken, setHasGitHubToken] = useState(false);
+  const [githubUser, setGithubUser] = useState<GitHubUser | null>(null);
 
   useEffect(() => {
     if (!auth) {
@@ -100,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkGitHubToken = async (): Promise<boolean> => {
     if (!user) {
       setHasGitHubToken(false);
+      setGithubUser(null);
       return false;
     }
 
@@ -107,10 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch(`/api/auth/check-github?userId=${user.uid}`);
       const data = await response.json();
       setHasGitHubToken(data.hasToken || false);
+      
+      if (data.hasToken && data.githubUser) {
+        setGithubUser(data.githubUser);
+      } else {
+        setGithubUser(null);
+      }
+      
       return data.hasToken || false;
     } catch (error) {
       console.error('Error checking GitHub token:', error);
       setHasGitHubToken(false);
+      setGithubUser(null);
       return false;
     }
   };
@@ -120,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     isAuthenticated: !!user,
     hasGitHubToken,
+    githubUser,
     signInAnonymous,
     signOut,
     initiateGitHubAuth,

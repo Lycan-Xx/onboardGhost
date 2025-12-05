@@ -17,8 +17,21 @@ export async function GET(request: NextRequest) {
     const tokenRef = adminDb.collection('github_tokens').doc(userId);
     const tokenDoc = await tokenRef.get();
 
+    if (!tokenDoc.exists) {
+      return NextResponse.json({
+        hasToken: false,
+      });
+    }
+
+    const data = tokenDoc.data();
+    
     return NextResponse.json({
-      hasToken: tokenDoc.exists,
+      hasToken: true,
+      githubUser: data?.github_username ? {
+        username: data.github_username,
+        avatar: data.github_avatar,
+        name: data.github_name,
+      } : null,
     });
   } catch (error) {
     console.error('Error checking GitHub token:', error);

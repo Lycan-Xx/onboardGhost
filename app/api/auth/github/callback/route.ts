@@ -67,16 +67,33 @@ export async function GET(request: NextRequest) {
       throw new Error('No access token received');
     }
 
+    // Fetch GitHub user profile
+    const userResponse = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    });
+
+    if (!userResponse.ok) {
+      throw new Error('Failed to fetch GitHub user profile');
+    }
+
+    const githubUser = await userResponse.json();
+
     // Encrypt token (simple base64 for now - in production use proper encryption)
     const encryptedToken = Buffer.from(tokenData.access_token).toString('base64');
 
-    // Store encrypted token in Firebase
+    // Store encrypted token and user profile in Firebase
     const tokenRef = adminDb.collection('github_tokens').doc(stateData.userId);
     await tokenRef.set({
       encrypted_token: encryptedToken,
       scope: tokenData.scope,
       created_at: new Date(),
       expires_at: null, // GitHub tokens don't expire unless revoked
+      github_username: githubUser.login,
+      github_avatar: githubUser.avatar_url,
+      github_name: githubUser.name || githubUser.login,
     });
 
     // Redirect back to dashboard with success
