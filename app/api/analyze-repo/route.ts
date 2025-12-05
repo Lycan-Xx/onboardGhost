@@ -106,11 +106,22 @@ export async function POST(request: NextRequest) {
       console.log(`[API ${requestId}] ⚠️  Cache check failed, proceeding with fresh analysis:`, cacheError);
     }
 
+    // Initialize progress document
+    const progressRef = adminDb.collection('analysis_progress').doc(repoId);
+    await progressRef.set({
+      current_step: 0,
+      step_name: 'Initializing',
+      step_status: 'in-progress',
+      logs: [],
+      updated_at: new Date(),
+    });
+
     // Create analyzer with progress callback
     console.log(`[API ${requestId}] 🚀 Starting fresh analysis...\n`);
     const analyzer = createAnalyzer(githubToken, async (progress) => {
       // Store progress in Firestore for real-time updates
-      const progressRef = adminDb.collection('analysis_progress').doc(repoId);
+      console.log(`[API ${requestId}] Progress Update: Step ${progress.step} - ${progress.stepName} (${progress.status})`);
+      
       const logEntry: any = {
         timestamp: new Date(),
         step: progress.step,
@@ -122,13 +133,17 @@ export async function POST(request: NextRequest) {
         logEntry.details = progress.details;
       }
       
+      // Get current document to append logs
+      const currentDoc = await progressRef.get();
+      const currentLogs = currentDoc.exists ? (currentDoc.data()?.logs || []) : [];
+      
       await progressRef.set({
         current_step: progress.step,
         step_name: progress.stepName,
         step_status: progress.status,
-        logs: [logEntry],
+        logs: [...currentLogs, logEntry],
         updated_at: new Date(),
-      }, { merge: true });
+      });
     });
 
     // Run analysis

@@ -107,28 +107,39 @@ function LoadingContent() {
 
       // Listen to real-time progress updates
       const progressRef = doc(db, 'analysis_progress', repoId);
+      console.log('[Loading] Setting up Firestore listener for:', repoId);
+      
       const unsubscribe = onSnapshot(
         progressRef,
         (doc) => {
           if (doc.exists()) {
             const data = doc.data() as AnalysisProgress;
+            console.log('[Loading] Progress update:', {
+              step: data.current_step,
+              stepName: data.step_name,
+              status: data.step_status,
+              logsCount: data.logs?.length || 0,
+            });
             setProgress(data);
 
             // Check if analysis is complete
             if (data.step_status === 'completed' && data.current_step === 8) {
+              console.log('[Loading] Analysis complete! Redirecting to tasks...');
               setTimeout(() => {
                 router.push(`/tasks?repoId=${repoId}`);
               }, 2000);
             } else if (data.step_status === 'failed') {
+              console.error('[Loading] Analysis failed');
               setError('Analysis failed. Please try again.');
             }
           } else {
+            console.log('[Loading] Progress document does not exist yet, waiting...');
             // No progress document - might be cached, check again
             setTimeout(() => checkExistingRoadmap(), 3000);
           }
         },
         (error) => {
-          console.error('Error listening to progress:', error);
+          console.error('[Loading] Error listening to progress:', error);
           // Try checking for existing roadmap as fallback
           checkExistingRoadmap();
         }

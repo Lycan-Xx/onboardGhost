@@ -6,6 +6,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
+    console.log('[check-github] Checking token for userId:', userId);
+
     if (!userId) {
       return NextResponse.json(
         { error: 'Missing userId parameter' },
@@ -17,6 +19,8 @@ export async function GET(request: NextRequest) {
     const tokenRef = adminDb.collection('github_tokens').doc(userId);
     const tokenDoc = await tokenRef.get();
 
+    console.log('[check-github] Token document exists:', tokenDoc.exists);
+
     if (!tokenDoc.exists) {
       return NextResponse.json({
         hasToken: false,
@@ -24,6 +28,11 @@ export async function GET(request: NextRequest) {
     }
 
     const data = tokenDoc.data();
+    console.log('[check-github] Token data:', {
+      hasUsername: !!data?.github_username,
+      hasAvatar: !!data?.github_avatar,
+      hasName: !!data?.github_name,
+    });
     
     return NextResponse.json({
       hasToken: true,
@@ -34,7 +43,7 @@ export async function GET(request: NextRequest) {
       } : null,
     });
   } catch (error) {
-    console.error('Error checking GitHub token:', error);
+    console.error('[check-github] Error:', error);
     return NextResponse.json(
       { error: 'Failed to check GitHub token', hasToken: false },
       { status: 500 }

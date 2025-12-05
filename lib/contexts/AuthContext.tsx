@@ -36,6 +36,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasGitHubToken, setHasGitHubToken] = useState(false);
   const [githubUser, setGithubUser] = useState<GitHubUser | null>(null);
 
+  const checkGitHubToken = async (userId: string): Promise<boolean> => {
+    console.log('[AuthContext] Checking GitHub token for user:', userId);
+    
+    try {
+      const response = await fetch(`/api/auth/check-github?userId=${userId}`);
+      const data = await response.json();
+      
+      console.log('[AuthContext] GitHub token check result:', data);
+      
+      setHasGitHubToken(data.hasToken || false);
+      
+      if (data.hasToken && data.githubUser) {
+        console.log('[AuthContext] GitHub user found:', data.githubUser);
+        setGithubUser(data.githubUser);
+      } else {
+        console.log('[AuthContext] No GitHub user data');
+        setGithubUser(null);
+      }
+      
+      return data.hasToken || false;
+    } catch (error) {
+      console.error('[AuthContext] Error checking GitHub token:', error);
+      setHasGitHubToken(false);
+      setGithubUser(null);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (!auth) {
       console.error('Firebase Auth is not initialized');
@@ -44,13 +72,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('[AuthContext] Auth state changed:', firebaseUser?.uid || 'no user');
       setUser(firebaseUser);
       
       if (firebaseUser) {
         // Check if user has GitHub token
-        await checkGitHubToken();
+        await checkGitHubToken(firebaseUser.uid);
       } else {
         setHasGitHubToken(false);
+        setGithubUser(null);
       }
       
       setLoading(false);
@@ -105,32 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const checkGitHubToken = async (): Promise<boolean> => {
-    if (!user) {
-      setHasGitHubToken(false);
-      setGithubUser(null);
-      return false;
-    }
 
-    try {
-      const response = await fetch(`/api/auth/check-github?userId=${user.uid}`);
-      const data = await response.json();
-      setHasGitHubToken(data.hasToken || false);
-      
-      if (data.hasToken && data.githubUser) {
-        setGithubUser(data.githubUser);
-      } else {
-        setGithubUser(null);
-      }
-      
-      return data.hasToken || false;
-    } catch (error) {
-      console.error('Error checking GitHub token:', error);
-      setHasGitHubToken(false);
-      setGithubUser(null);
-      return false;
-    }
-  };
 
   const value = {
     user,
@@ -141,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInAnonymous,
     signOut,
     initiateGitHubAuth,
-    checkGitHubToken,
+    checkGitHubToken: () => user ? checkGitHubToken(user.uid) : Promise.resolve(false),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -121,28 +121,31 @@ function DashboardContent() {
     setError(null);
 
     try {
-      const response = await fetch('/api/analyze-repo', {
+      // Generate repoId from URL immediately
+      const urlParts = repoUrl.replace('https://github.com/', '').split('/');
+      if (urlParts.length < 2) {
+        throw new Error('Invalid repository URL');
+      }
+      const repoId = `repo_${urlParts[0]}_${urlParts[1]}`;
+
+      // Redirect to loading page immediately
+      router.push(`/loading?repoId=${repoId}`);
+
+      // Start analysis in background (don't await)
+      fetch('/api/analyze-repo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           repoUrl,
-          // Only send userId if user is authenticated with GitHub
-          // This ensures unauthenticated analyses only use cache
           userId: hasGitHubToken ? user?.uid : null,
-          saveProgress: hasGitHubToken, // Flag to indicate if we should save user progress
+          saveProgress: hasGitHubToken,
         }),
+      }).catch(err => {
+        console.error('Analysis error:', err);
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to analyze repository');
-      }
-
-      // Redirect to loading page
-      router.push(`/loading?repoId=${data.repoId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setAnalyzing(false);
@@ -192,6 +195,17 @@ function DashboardContent() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Debug auth state
+  useEffect(() => {
+    console.log('Dashboard Auth Debug:', {
+      hasGitHubToken,
+      githubUser,
+      isAuthenticated,
+      userId: user?.uid,
+      repositoriesCount: repositories.length,
+    });
+  }, [hasGitHubToken, githubUser, isAuthenticated, user, repositories]);
 
   if (authLoading) {
     return (
