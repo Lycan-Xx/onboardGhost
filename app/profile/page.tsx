@@ -6,12 +6,23 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 
 export default function Profile() {
   const router = useRouter();
-  const { user, hasGitHubToken, signOut, initiateGitHubAuth } = useAuth();
+  const { user, loading, hasGitHubToken, signOut, initiateGitHubAuth } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
     router.push('/dashboard');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col p-4 sm:p-6 lg:p-8">
@@ -52,12 +63,14 @@ export default function Profile() {
                   <>
                     <span className="material-symbols-outlined text-gray-500">cancel</span>
                     <span className="text-gray-400">Not connected</span>
-                    <button
-                      onClick={initiateGitHubAuth}
-                      className="ml-auto px-4 py-2 bg-pink-500 text-[#0a0a0f] font-semibold rounded-lg hover:bg-pink-600 transition-colors text-sm"
-                    >
-                      Connect GitHub
-                    </button>
+                    {user && (
+                      <button
+                        onClick={initiateGitHubAuth}
+                        className="ml-auto px-4 py-2 bg-pink-500 text-[#0a0a0f] font-semibold rounded-lg hover:bg-pink-600 transition-colors text-sm"
+                      >
+                        Connect GitHub
+                      </button>
+                    )}
                   </>
                 )}
               </div>

@@ -37,11 +37,12 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { repoUrl, userId, githubToken } = body;
+    const { repoUrl, userId, githubToken, saveProgress = true } = body;
     
     console.log(`[API ${requestId}] Repository URL: ${repoUrl}`);
-    console.log(`[API ${requestId}] User ID: ${userId}`);
-    console.log(`[API ${requestId}] Has GitHub Token: ${!!githubToken}\n`);
+    console.log(`[API ${requestId}] User ID: ${userId || 'anonymous'}`);
+    console.log(`[API ${requestId}] Has GitHub Token: ${!!githubToken}`);
+    console.log(`[API ${requestId}] Save Progress: ${saveProgress}\n`);
 
     // Validate inputs
     if (!repoUrl || !validateGitHubUrl(repoUrl)) {
@@ -52,9 +53,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!userId) {
+    // userId is optional for unauthenticated users (cache-only mode)
+    if (saveProgress && !userId) {
       return NextResponse.json(
-        { error: 'User ID is required' },
+        { error: 'User ID is required to save progress' },
         { status: 400 }
       );
     }
@@ -183,17 +185,22 @@ export async function POST(request: NextRequest) {
     
     await roadmapRef.set(roadmapData);
 
-    // Initialize user progress
-    const progressRef = adminDb.collection('user_progress').doc(userId).collection('repos').doc(repoId);
-    await progressRef.set({
-      user_id: userId,
-      repo_id: repoId,
-      completed_tasks: [],
-      overall_progress_percentage: 0,
-      ghost_solidness: 0,
-      started_at: new Date(),
-      last_activity: new Date(),
-    });
+    // Initialize user progress (only if saveProgress is true and userId exists)
+    if (saveProgress && userId) {
+      console.log(`[API ${requestId}] 💾 Saving user progress...`);
+      const progressRef = adminDb.collection('user_progress').doc(userId).collection('repos').doc(repoId);
+      await progressRef.set({
+        user_id: userId,
+        repo_id: repoId,
+        completed_tasks: [],
+        overall_progress_percentage: 0,
+        ghost_solidness: 0,
+        started_at: new Date(),
+        last_activity: new Date(),
+      });
+    } else {
+      console.log(`[API ${requestId}] ℹ️  Skipping user progress (cache-only mode)`);
+    }
 
     console.log(`\n[API ${requestId}] ✅ Analysis completed successfully!`);
     console.log(`${'#'.repeat(80)}\n`);

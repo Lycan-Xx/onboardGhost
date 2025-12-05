@@ -29,6 +29,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasGitHubToken, setHasGitHubToken] = useState(false);
 
   useEffect(() => {
+    if (!auth) {
+      console.error('Firebase Auth is not initialized');
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       
