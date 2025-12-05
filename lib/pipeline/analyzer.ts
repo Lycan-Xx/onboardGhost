@@ -222,22 +222,18 @@ export class RepositoryAnalyzer {
       repository_metadata: geminiMetadata,
     });
 
-    // Transform roadmap sections to match OnboardingRoadmap interface
+    // Pass through roadmap data - transformer will handle normalization
     const transformedSections = roadmapData.sections.map((section: any) => ({
-      id: section.id,
-      title: section.title,
-      goals: [], // Gemini doesn't provide goals, so we'll leave empty
+      ...section, // Keep all fields from Gemini
+      goals: [], // Add goals field for OnboardingRoadmap interface
       tasks: section.tasks.map((task: any) => ({
-        id: task.id,
-        title: task.title,
-        description: typeof task.description === 'string' ? task.description : task.description.summary,
+        ...task, // Keep ALL fields from Gemini (steps, commands, code_blocks, etc.)
+        // Add legacy fields for backward compatibility
         instructions: task.instructions || '',
         code_snippet: task.code_blocks?.[0]?.content || null,
         difficulty: task.difficulty === 'beginner' ? 'easy' as const :
                    task.difficulty === 'intermediate' ? 'medium' as const : 'hard' as const,
         completion_criteria: task.verification?.how_to_verify || '',
-        tips: task.tips?.map((tip: any) => tip.text) || [],
-        warnings: task.warnings?.map((warning: any) => warning.text) || [],
       })),
     }));
 

@@ -72,7 +72,29 @@ export interface RawTask {
  * Accepts both raw Gemini output and existing Roadmap objects
  */
 export function transformRoadmapForUI(raw: RawRoadmap | Roadmap): Roadmap {
+  // Log what we receive
+  console.log('[Transformer] Received data sample:', JSON.stringify({
+    sections: raw.sections?.length || 0,
+    firstTask: raw.sections?.[0]?.tasks?.[0] ? {
+      id: raw.sections[0].tasks[0].id,
+      hasSteps: !!raw.sections[0].tasks[0].steps,
+      stepsCount: raw.sections[0].tasks[0].steps?.length || 0,
+      hasCommands: !!raw.sections[0].tasks[0].commands,
+      commandsCount: raw.sections[0].tasks[0].commands?.length || 0,
+    } : 'no tasks'
+  }, null, 2));
+  
   const sections = raw.sections.map(enrichSection);
+  
+  // Log what we're returning
+  console.log('[Transformer] Returning data sample:', JSON.stringify({
+    sections: sections.length,
+    firstTask: sections[0]?.tasks?.[0] ? {
+      id: sections[0].tasks[0].id,
+      stepsCount: sections[0].tasks[0].steps?.length || 0,
+      commandsCount: sections[0].tasks[0].commands?.length || 0,
+    } : 'no tasks'
+  }, null, 2));
   
   return {
     repository_name: raw.repository_name || 'Unknown Project',
@@ -105,14 +127,27 @@ function enrichTask(task: RawTask): RoadmapTask {
     steps: task.steps || [],
     commands: normalizeCommands(task.commands),
     code_blocks: task.code_blocks || [],
-    references: task.references || [],
+    references: task.references || [], // Transformer adds empty array
     tips: normalizeTips(task.tips),
     warnings: normalizeWarnings(task.warnings),
-    verification: normalizeVerification(task.verification),
+    verification: normalizeVerification(task.verification), // Transformer adds default
     difficulty: normalizeDifficulty(task.difficulty),
-    estimated_time: task.estimated_time || '10 minutes',
-    depends_on: task.depends_on || [],
+    estimated_time: task.estimated_time || estimateTimeFromSteps(task.steps), // Smart estimation
+    depends_on: task.depends_on || [], // Transformer adds empty array
   };
+}
+
+/**
+ * Estimate time based on number of steps
+ */
+function estimateTimeFromSteps(steps: any[] | undefined): string {
+  if (!steps || steps.length === 0) return '10 minutes';
+  
+  const stepCount = steps.length;
+  if (stepCount <= 2) return '10 minutes';
+  if (stepCount <= 4) return '15 minutes';
+  if (stepCount <= 6) return '20 minutes';
+  return '30 minutes';
 }
 
 // ============================================================================

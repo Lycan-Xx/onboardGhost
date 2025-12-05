@@ -33,12 +33,12 @@ export class GeminiClient {
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({
-      model: 'gemini-1.5-pro',
+      model: 'gemini-2.5-pro',
       generationConfig: {
-        temperature: 0.4, // Lower for more consistent structure
+        temperature: 0.3, // Lower for more consistent structure
         topP: 0.95,
         topK: 40,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 6000, // Reduced to prevent overly large responses
       }
     });
   }
@@ -140,103 +140,87 @@ ${sectionGuidance}
 ${exampleTask}
 
 === OUTPUT STRUCTURE ===
-Return ONLY valid JSON (no markdown, no code blocks, no preamble).
+Return ONLY valid JSON (no markdown, no code blocks).
 
-IMPORTANT: Each task MUST include ALL these fields with actual content:
+Focus on these ESSENTIAL fields: steps, commands, code_blocks, description, tips.
 
 {
   "repository_name": "${analysisData.repository_metadata?.name || 'Unknown Project'}",
-  "total_tasks": <count all tasks across all sections>,
-  "estimated_completion_time": "2-4 hours",
+  "total_tasks": 6,
+  "estimated_completion_time": "2 hours",
   "sections": [
     {
-      "id": "section-1",
-      "title": "Understanding ${analysisData.repository_metadata?.name || 'the Project'}",
-      "description": "Learn what this ${analysisData.purpose?.project_type || 'project'} does before setup",
+      "id": "section-understanding",
+      "title": "Understanding the Project",
+      "description": "Learn what this project does",
       "tasks": [
         {
           "id": "task-1",
-          "title": "Descriptive task title",
-          "description": {
-            "summary": "Brief overview of what this task does",
-            "why_needed": "Why this is important for THIS project",
-            "learning_goal": "What you'll understand after completing this"
-          },
+          "title": "Project Overview",
+          "description": "Detailed explanation of what this task involves and why it matters for THIS project",
           "steps": [
-            {
-              "order": 1,
-              "action": "Action to take",
-              "details": "Detailed instructions with actual commands and file paths",
-              "os_specific": null
-            }
+            {"order": 1, "action": "Read README", "details": "Open README.md and understand the project purpose and features", "os_specific": null},
+            {"order": 2, "action": "Check structure", "details": "Look at the folder structure to understand organization", "os_specific": null}
           ],
-          "commands": [
-            {
-              "command": "actual command to run",
-              "description": "What this command does",
-              "expected_output": "What you should see",
-              "os": "all"
-            }
+          "commands": ["cat README.md", "ls -la"],
+          "code_blocks": [],
+          "tips": ["Take notes on key features", "Pay attention to prerequisites mentioned"],
+          "difficulty": "beginner"
+        }
+      ]
+    },
+    {
+      "id": "section-setup",
+      "title": "Environment Setup",
+      "description": "Install required tools",
+      "tasks": [
+        {
+          "id": "task-2",
+          "title": "Install Node.js",
+          "description": "Install Node.js runtime which is required for this Next.js project",
+          "steps": [
+            {"order": 1, "action": "Check version", "details": "Run node --version to see if Node is installed", "os_specific": null},
+            {"order": 2, "action": "Install if needed", "details": "Download from nodejs.org if not installed", "os_specific": null}
           ],
+          "commands": ["node --version", "npm --version"],
+          "code_blocks": [],
+          "tips": ["Use nvm for version management", "Node 18+ is recommended"],
+          "difficulty": "beginner"
+        },
+        {
+          "id": "task-3",
+          "title": "Configure Environment",
+          "description": "Set up environment variables needed for this project",
+          "steps": [
+            {"order": 1, "action": "Copy env file", "details": "Copy .env.example to .env", "os_specific": null},
+            {"order": 2, "action": "Fill variables", "details": "Add your API keys and configuration", "os_specific": null}
+          ],
+          "commands": ["cp .env.example .env"],
           "code_blocks": [
             {
               "type": "file_content",
               "file_path": ".env",
               "language": "bash",
-              "content": "ACTUAL_VAR=value",
-              "explanation": "What this configuration does"
+              "content": "DATABASE_URL=your_database_url\\nNEXT_PUBLIC_API_URL=your_api_url",
+              "explanation": "Required environment variables"
             }
           ],
-          "references": [
-            {
-              "text": "Helpful link title",
-              "url": "https://...",
-              "type": "documentation",
-              "relevance": "Why this helps"
-            }
-          ],
-          "tips": [
-            {
-              "text": "Helpful tip with specific advice",
-              "type": "pro_tip",
-              "emphasis": ["keyword"]
-            }
-          ],
-          "warnings": [
-            {
-              "text": "Important warning",
-              "severity": "important",
-              "os_specific": false,
-              "emphasis": ["keyword"]
-            }
-          ],
-          "verification": {
-            "how_to_verify": "How to check if this worked",
-            "expected_result": "What success looks like",
-            "troubleshooting": [
-              {
-                "problem": "Common issue",
-                "solution": "How to fix it",
-                "command": "fix command or null"
-              }
-            ]
-          },
-          "difficulty": "beginner",
-          "estimated_time": "10 minutes",
-          "depends_on": []
+          "tips": ["Never commit .env files", "Check .env.example for all required variables"],
+          "difficulty": "beginner"
         }
       ]
     }
   ]
 }
 
-CRITICAL: Do NOT leave arrays empty! Include:
-- At least 2-3 steps per task with detailed instructions
-- At least 1-2 commands per task
-- Code blocks for .env files, config files (if applicable)
-- At least 1-2 tips per task
-- References to official documentation
-- Warnings for common mistakes`;
+CRITICAL RULES:
+1. ALWAYS include 2-3 steps per task (not empty array)
+2. ALWAYS include 1-2 commands per task (not empty array)
+3. Include code_blocks for .env files and config files
+4. Include 2-3 helpful tips per task
+5. Make descriptions detailed and project-specific
+6. Keep text simple - no quotes, no newlines in strings
+7. Use \\n for newlines in code_blocks content only`;
 
     try {
       const result = await retryWithBackoff(
@@ -249,11 +233,36 @@ CRITICAL: Do NOT leave arrays empty! Include:
       );
 
       const cleanedResult = this.cleanJsonResponse(result);
-      const parsed = JSON.parse(cleanedResult);
+      
+      // Try to parse with error recovery
+      let parsed;
+      try {
+        parsed = JSON.parse(cleanedResult);
+      } catch (parseError) {
+        console.error('[Gemini] JSON parse failed, attempting repair...', parseError);
+        // Try to fix common JSON issues
+        const repaired = this.repairJson(cleanedResult);
+        parsed = JSON.parse(repaired);
+      }
 
-      // Validate and normalize structure
-      this.validateAndNormalizeRoadmap(parsed);
+      // Log what Gemini actually returned
+      console.log('[Gemini] Raw parsed data sample:', JSON.stringify({
+        sections: parsed.sections?.length || 0,
+        firstTask: parsed.sections?.[0]?.tasks?.[0] ? {
+          id: parsed.sections[0].tasks[0].id,
+          title: parsed.sections[0].tasks[0].title,
+          hasSteps: !!parsed.sections[0].tasks[0].steps,
+          stepsCount: parsed.sections[0].tasks[0].steps?.length || 0,
+          hasCommands: !!parsed.sections[0].tasks[0].commands,
+          commandsCount: parsed.sections[0].tasks[0].commands?.length || 0,
+          hasTips: !!parsed.sections[0].tasks[0].tips,
+          tipsCount: parsed.sections[0].tasks[0].tips?.length || 0,
+        } : 'no tasks'
+      }, null, 2));
 
+      // Basic validation only - transformer will normalize
+      this.validateRoadmapStructure(parsed);
+      
       return parsed as Roadmap;
     } catch (error) {
       console.error('Failed to generate roadmap:', error);
@@ -506,45 +515,16 @@ ${sections.map((s, i) => `${i + 1}. ${s}`).join('\n')}
   }
 
   /**
-   * Validate and normalize roadmap structure
+   * Basic validation - just check structure exists
    */
-  private validateAndNormalizeRoadmap(roadmap: any): void {
+  private validateRoadmapStructure(roadmap: any): void {
     if (!roadmap.sections || !Array.isArray(roadmap.sections)) {
       throw new Error('Invalid roadmap structure: missing sections array');
     }
-
+    
     for (const section of roadmap.sections) {
       if (!section.tasks || !Array.isArray(section.tasks)) {
-        section.tasks = [];
-      }
-
-      for (const task of section.tasks) {
-        // Ensure all required arrays exist
-        task.steps = task.steps || [];
-        task.commands = task.commands || [];
-        task.code_blocks = task.code_blocks || [];
-        task.references = task.references || [];
-        task.tips = task.tips || [];
-        task.warnings = task.warnings || [];
-        task.depends_on = task.depends_on || [];
-
-        // Ensure description is an object
-        if (typeof task.description === 'string') {
-          task.description = {
-            summary: task.description,
-            why_needed: '',
-            learning_goal: '',
-          };
-        }
-
-        // Ensure verification exists
-        if (!task.verification) {
-          task.verification = {
-            how_to_verify: '',
-            expected_result: '',
-            troubleshooting: [],
-          };
-        }
+        throw new Error(`Section ${section.id} is missing tasks array`);
       }
     }
   }
@@ -563,6 +543,29 @@ ${sections.map((s, i) => `${i + 1}. ${s}`).join('\n')}
     }
 
     return cleaned.trim();
+  }
+
+  /**
+   * Attempt to repair common JSON issues
+   */
+  private repairJson(text: string): string {
+    let repaired = text;
+
+    // Remove trailing commas before closing braces/brackets
+    repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+
+    // Remove control characters that break JSON
+    repaired = repaired.replace(/[\x00-\x1F\x7F]/g, '');
+
+    // Try to find and extract valid JSON boundaries
+    const jsonStart = repaired.indexOf('{');
+    const jsonEnd = repaired.lastIndexOf('}');
+    
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      repaired = repaired.substring(jsonStart, jsonEnd + 1);
+    }
+
+    return repaired;
   }
 
   /**

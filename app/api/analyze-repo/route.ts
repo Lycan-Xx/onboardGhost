@@ -151,8 +151,21 @@ export async function POST(request: NextRequest) {
     const roadmapRef = adminDb.collection('roadmaps').doc(repoId);
     console.log(`[API ${requestId}] Transforming roadmap for UI...`);
     
+    // Log what Gemini returned
+    const rawRoadmap: any = analysis.roadmap;
+    console.log(`[API ${requestId}] Before transform - first task:`, JSON.stringify({
+      hasSteps: !!rawRoadmap.sections?.[0]?.tasks?.[0]?.steps,
+      stepsCount: rawRoadmap.sections?.[0]?.tasks?.[0]?.steps?.length || 0,
+    }));
+    
     // Transform raw Gemini output to UI-ready format
-    const enrichedRoadmap = transformRoadmapForUI(analysis.roadmap);
+    const enrichedRoadmap: any = transformRoadmapForUI(analysis.roadmap as any);
+    
+    // Log after transform
+    console.log(`[API ${requestId}] After transform - first task:`, JSON.stringify({
+      hasSteps: !!enrichedRoadmap.sections?.[0]?.tasks?.[0]?.steps,
+      stepsCount: enrichedRoadmap.sections?.[0]?.tasks?.[0]?.steps?.length || 0,
+    }));
     
     console.log(`[API ${requestId}] Storing roadmap with ${enrichedRoadmap.sections?.length || 0} sections`);
     console.log(`[API ${requestId}] Total tasks: ${enrichedRoadmap.total_tasks}`);
@@ -161,6 +174,13 @@ export async function POST(request: NextRequest) {
       ...enrichedRoadmap,
       generated_at: new Date(),
     });
+    
+    // Log after removeUndefined
+    console.log(`[API ${requestId}] After removeUndefined - first task:`, JSON.stringify({
+      hasSteps: !!roadmapData.sections?.[0]?.tasks?.[0]?.steps,
+      stepsCount: roadmapData.sections?.[0]?.tasks?.[0]?.steps?.length || 0,
+    }));
+    
     await roadmapRef.set(roadmapData);
 
     // Initialize user progress
