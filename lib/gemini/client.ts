@@ -35,7 +35,7 @@ export class GeminiClient {
     this.model = this.genAI.getGenerativeModel({
       model: 'gemini-1.5-pro',
       generationConfig: {
-        temperature: 0.7, // Balance creativity with consistency
+        temperature: 0.4, // Lower for more consistent structure
         topP: 0.95,
         topK: 40,
         maxOutputTokens: 8192,
@@ -140,7 +140,10 @@ ${sectionGuidance}
 ${exampleTask}
 
 === OUTPUT STRUCTURE ===
-Return ONLY valid JSON (no markdown, no code blocks, no preamble):
+Return ONLY valid JSON (no markdown, no code blocks, no preamble).
+
+IMPORTANT: Each task MUST include ALL these fields with actual content:
+
 {
   "repository_name": "${analysisData.repository_metadata?.name || 'Unknown Project'}",
   "total_tasks": <count all tasks across all sections>,
@@ -150,10 +153,90 @@ Return ONLY valid JSON (no markdown, no code blocks, no preamble):
       "id": "section-1",
       "title": "Understanding ${analysisData.repository_metadata?.name || 'the Project'}",
       "description": "Learn what this ${analysisData.purpose?.project_type || 'project'} does before setup",
-      "tasks": [<task objects>]
+      "tasks": [
+        {
+          "id": "task-1",
+          "title": "Descriptive task title",
+          "description": {
+            "summary": "Brief overview of what this task does",
+            "why_needed": "Why this is important for THIS project",
+            "learning_goal": "What you'll understand after completing this"
+          },
+          "steps": [
+            {
+              "order": 1,
+              "action": "Action to take",
+              "details": "Detailed instructions with actual commands and file paths",
+              "os_specific": null
+            }
+          ],
+          "commands": [
+            {
+              "command": "actual command to run",
+              "description": "What this command does",
+              "expected_output": "What you should see",
+              "os": "all"
+            }
+          ],
+          "code_blocks": [
+            {
+              "type": "file_content",
+              "file_path": ".env",
+              "language": "bash",
+              "content": "ACTUAL_VAR=value",
+              "explanation": "What this configuration does"
+            }
+          ],
+          "references": [
+            {
+              "text": "Helpful link title",
+              "url": "https://...",
+              "type": "documentation",
+              "relevance": "Why this helps"
+            }
+          ],
+          "tips": [
+            {
+              "text": "Helpful tip with specific advice",
+              "type": "pro_tip",
+              "emphasis": ["keyword"]
+            }
+          ],
+          "warnings": [
+            {
+              "text": "Important warning",
+              "severity": "important",
+              "os_specific": false,
+              "emphasis": ["keyword"]
+            }
+          ],
+          "verification": {
+            "how_to_verify": "How to check if this worked",
+            "expected_result": "What success looks like",
+            "troubleshooting": [
+              {
+                "problem": "Common issue",
+                "solution": "How to fix it",
+                "command": "fix command or null"
+              }
+            ]
+          },
+          "difficulty": "beginner",
+          "estimated_time": "10 minutes",
+          "depends_on": []
+        }
+      ]
     }
   ]
-}`;
+}
+
+CRITICAL: Do NOT leave arrays empty! Include:
+- At least 2-3 steps per task with detailed instructions
+- At least 1-2 commands per task
+- Code blocks for .env files, config files (if applicable)
+- At least 1-2 tips per task
+- References to official documentation
+- Warnings for common mistakes`;
 
     try {
       const result = await retryWithBackoff(

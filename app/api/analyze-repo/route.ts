@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin';
 import { createAnalyzer } from '@/lib/pipeline';
 import { validateGitHubUrl } from '@/lib/utils/url';
 import { handleAPIError } from '@/lib/utils/errors';
+import { transformRoadmapForUI } from '@/lib/utils/roadmap-transformer';
 
 // Helper function to remove undefined values from objects
 function removeUndefined(obj: any): any {
@@ -146,13 +147,18 @@ export async function POST(request: NextRequest) {
     });
     await repoRef.set(repoData);
 
-    // Store roadmap
+    // Transform and store roadmap
     const roadmapRef = adminDb.collection('roadmaps').doc(repoId);
-    console.log(`[API ${requestId}] Storing roadmap with ${analysis.roadmap.sections?.length || 0} sections`);
-    console.log(`[API ${requestId}] Total tasks: ${analysis.roadmap.total_tasks}`);
+    console.log(`[API ${requestId}] Transforming roadmap for UI...`);
+    
+    // Transform raw Gemini output to UI-ready format
+    const enrichedRoadmap = transformRoadmapForUI(analysis.roadmap);
+    
+    console.log(`[API ${requestId}] Storing roadmap with ${enrichedRoadmap.sections?.length || 0} sections`);
+    console.log(`[API ${requestId}] Total tasks: ${enrichedRoadmap.total_tasks}`);
     
     const roadmapData = removeUndefined({
-      ...analysis.roadmap,
+      ...enrichedRoadmap,
       generated_at: new Date(),
     });
     await roadmapRef.set(roadmapData);
