@@ -156,6 +156,16 @@ function DashboardContent() {
     router.push(`/tasks?repoId=${repoId}`);
   };
 
+  // Debug logging
+  useEffect(() => {
+    console.log('Dashboard Auth State:', {
+      authLoading,
+      isAuthenticated,
+      hasGitHubToken,
+      user: user?.uid || 'none'
+    });
+  }, [authLoading, isAuthenticated, hasGitHubToken, user]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">

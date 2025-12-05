@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export", // ✅ REQUIRED for Cloudflare Pages static hosting
+  // Remove output: "export" - we need SSR for API routes
   images: {
-    unoptimized: true // ✅ REQUIRED so Next/Image works on static hosting
+    unoptimized: true
   },
   reactCompiler: true
 };
