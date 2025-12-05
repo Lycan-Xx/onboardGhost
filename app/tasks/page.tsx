@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import GhostMentorChat from '@/components/GhostMentorChat';
 import Link from 'next/link';
 import { 
-  TaskCard, 
   TaskSteps, 
   CommandBlocks, 
   CodeBlocks, 

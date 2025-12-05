@@ -365,7 +365,7 @@ export function TipsSection({ tips }: { tips: (string | Tip)[] }) {
     return icons[type] || '💡';
   };
 
-  const formatText = (text: string, emphasis: string[]) => {
+  const formatText = (text: string, emphasis: string[] = []) => {
     let formatted = text;
     emphasis.forEach((phrase) => {
       const regex = new RegExp(`(${phrase})`, 'gi');
@@ -376,6 +376,11 @@ export function TipsSection({ tips }: { tips: (string | Tip)[] }) {
       .replace(/`(.*?)`/g, '<code class="bg-gray-900 px-1.5 py-0.5 rounded text-pink-300 font-mono text-xs">$1</code>');
   };
 
+  // Filter out null/undefined tips
+  const validTips = tips.filter(tip => tip != null);
+
+  if (validTips.length === 0) return null;
+
   return (
     <div>
       <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-lg">
@@ -383,7 +388,7 @@ export function TipsSection({ tips }: { tips: (string | Tip)[] }) {
         Tips
       </h3>
       <div className="space-y-3">
-        {tips.map((tip, index) => {
+        {validTips.map((tip, index) => {
           // Handle old format (string)
           if (typeof tip === 'string') {
             return (
@@ -396,17 +401,19 @@ export function TipsSection({ tips }: { tips: (string | Tip)[] }) {
             );
           }
 
-          // Handle new format (Tip object)
+          // Handle new format (Tip object) - with null checks
+          if (!tip || !tip.text) return null;
+
           return (
             <div
               key={index}
               className="bg-blue-900/10 border-l-4 border-blue-500 p-4 rounded-r-lg"
             >
               <div className="flex items-start gap-3">
-                <span className="text-xl flex-shrink-0">{getIcon(tip.type)}</span>
+                <span className="text-xl flex-shrink-0">{getIcon(tip.type || 'pro_tip')}</span>
                 <p
                   className="text-sm text-blue-300 leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: formatText(tip.text, tip.emphasis) }}
+                  dangerouslySetInnerHTML={{ __html: formatText(tip.text, tip.emphasis || []) }}
                 />
               </div>
             </div>
@@ -435,7 +442,7 @@ export function WarningsSection({ warnings }: { warnings: (string | Warning)[] }
     return colors[severity] || colors.important;
   };
 
-  const formatText = (text: string, emphasis: string[]) => {
+  const formatText = (text: string, emphasis: string[] = []) => {
     let formatted = text;
     emphasis.forEach((phrase) => {
       const regex = new RegExp(`(${phrase})`, 'gi');
@@ -446,6 +453,11 @@ export function WarningsSection({ warnings }: { warnings: (string | Warning)[] }
       .replace(/`(.*?)`/g, '<code class="bg-gray-900 px-1.5 py-0.5 rounded text-pink-300 font-mono text-xs">$1</code>');
   };
 
+  // Filter out null/undefined warnings
+  const validWarnings = warnings.filter(warning => warning != null);
+
+  if (validWarnings.length === 0) return null;
+
   return (
     <div>
       <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-lg">
@@ -453,7 +465,7 @@ export function WarningsSection({ warnings }: { warnings: (string | Warning)[] }
         Warnings
       </h3>
       <div className="space-y-3">
-        {warnings.map((warning, index) => {
+        {validWarnings.map((warning, index) => {
           // Handle old format (string)
           if (typeof warning === 'string') {
             return (
@@ -466,11 +478,13 @@ export function WarningsSection({ warnings }: { warnings: (string | Warning)[] }
             );
           }
 
-          // Handle new format (Warning object)
+          // Handle new format (Warning object) - with null checks
+          if (!warning || !warning.text) return null;
+
           return (
             <div
               key={index}
-              className={`border-l-4 p-4 rounded-r-lg ${getSeverityColor(warning.severity)}`}
+              className={`border-l-4 p-4 rounded-r-lg ${getSeverityColor(warning.severity || 'important')}`}
             >
               <div className="flex items-start gap-3">
                 <span className="text-xl flex-shrink-0">⚠️</span>
@@ -482,7 +496,7 @@ export function WarningsSection({ warnings }: { warnings: (string | Warning)[] }
                   )}
                   <p
                     className="text-sm leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: formatText(warning.text, warning.emphasis) }}
+                    dangerouslySetInnerHTML={{ __html: formatText(warning.text, warning.emphasis || []) }}
                   />
                 </div>
               </div>
