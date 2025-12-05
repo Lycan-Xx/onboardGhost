@@ -157,14 +157,15 @@ Focus on these ESSENTIAL fields: steps, commands, code_blocks, description, tips
         {
           "id": "task-1",
           "title": "Project Overview",
-          "description": "Detailed explanation of what this task involves and why it matters for THIS project",
+          "description": "A comprehensive explanation of what this project does, its main features, the problem it solves, and the technologies it uses. This should give you a clear understanding before diving into setup.",
           "steps": [
-            {"order": 1, "action": "Read README", "details": "Open README.md and understand the project purpose and features", "os_specific": null},
-            {"order": 2, "action": "Check structure", "details": "Look at the folder structure to understand organization", "os_specific": null}
+            {"order": 1, "action": "Understand the purpose", "details": "This project is designed to solve X problem by providing Y functionality", "os_specific": null},
+            {"order": 2, "action": "Know the tech stack", "details": "Built with React, Next.js, and uses Firebase for backend services", "os_specific": null},
+            {"order": 3, "action": "Identify key features", "details": "Main features include user authentication, real-time updates, and responsive design", "os_specific": null}
           ],
-          "commands": ["cat README.md", "ls -la"],
+          "commands": [],
           "code_blocks": [],
-          "tips": ["Take notes on key features", "Pay attention to prerequisites mentioned"],
+          "tips": ["Read the README.md file for detailed information", "Check the project structure to understand organization", "Note any prerequisites mentioned"],
           "difficulty": "beginner"
         }
       ]
@@ -242,12 +243,13 @@ Focus on these ESSENTIAL fields: steps, commands, code_blocks, description, tips
 
 CRITICAL RULES:
 1. ALWAYS include 2-3 steps per task (not empty array)
-2. ALWAYS include 1-2 commands per task (not empty array)
-3. Include code_blocks for .env files and config files
+2. ALWAYS include 1-2 commands per task (EXCEPT for overview/understanding tasks)
+3. Include code_blocks for .env files and config files (NOT for overview tasks)
 4. Include 2-3 helpful tips per task
 5. Make descriptions detailed and project-specific
 6. Keep text simple - no quotes, no newlines in strings
-7. Use \\n for newlines in code_blocks content only`;
+7. Use \\n for newlines in code_blocks content only
+8. Overview/Understanding tasks should focus on EXPLANATION only - no commands or code blocks`;
 
     try {
       const result = await retryWithBackoff(
