@@ -241,15 +241,17 @@ Focus on these ESSENTIAL fields: steps, commands, code_blocks, description, tips
   ]
 }
 
-CRITICAL RULES:
+CRITICAL JSON RULES:
 1. ALWAYS include 2-3 steps per task (not empty array)
 2. ALWAYS include 1-2 commands per task (EXCEPT for overview/understanding tasks)
 3. Include code_blocks for .env files and config files (NOT for overview tasks)
 4. Include 2-3 helpful tips per task
 5. Make descriptions detailed and project-specific
-6. Keep text simple - no quotes, no newlines in strings
-7. Use \\n for newlines in code_blocks content only
-8. Overview/Understanding tasks should focus on EXPLANATION only - no commands or code blocks`;
+6. CRITICAL: Keep all text on ONE LINE - no newlines in description, details, or text fields
+7. CRITICAL: Replace any quotes in text with single quotes or remove them
+8. Use \\n ONLY in code_blocks content field
+9. Overview/Understanding tasks should focus on EXPLANATION only - no commands or code blocks
+10. If text is long, keep it concise - aim for under 150 characters per field`;
 
     try {
       const result = await retryWithBackoff(
@@ -591,8 +593,18 @@ Follow typical development workflow:
     // Remove trailing commas before closing braces/brackets
     repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
 
-    // Remove control characters that break JSON
-    repaired = repaired.replace(/[\x00-\x1F\x7F]/g, '');
+    // Remove control characters that break JSON (except newlines in code blocks)
+    repaired = repaired.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
+
+    // Fix unescaped newlines in string values
+    // Replace newlines with spaces in text fields
+    repaired = repaired.replace(/("(?:details|description|text|summary|why_needed|learning_goal|explanation)":\s*")([^"]*?)(")/g, 
+      (match, prefix, content, suffix) => {
+        // Replace actual newlines with spaces
+        const fixed = content.replace(/\n/g, ' ').replace(/\r/g, ' ').replace(/\s+/g, ' ');
+        return prefix + fixed + suffix;
+      }
+    );
 
     // Try to find and extract valid JSON boundaries
     const jsonStart = repaired.indexOf('{');

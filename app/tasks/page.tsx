@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import GhostMentorChat from '@/components/GhostMentorChat';
 import Link from 'next/link';
@@ -121,7 +121,7 @@ interface Progress {
   ghost_solidness: number;
 }
 
-export default function Tasks() {
+function TasksContent() {
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [loading, setLoading] = useState(true);
@@ -699,5 +699,20 @@ export default function Tasks() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function Tasks() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mb-4"></div>
+          <p className="text-gray-400">Loading tasks...</p>
+        </div>
+      </div>
+    }>
+      <TasksContent />
+    </Suspense>
   );
 }
