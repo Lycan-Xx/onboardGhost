@@ -26,21 +26,57 @@ interface AnalysisData {
   repository_metadata: RepositoryMetadata;
 }
 
+// Available Gemini models in order of preference (for v1beta API)
+const GEMINI_MODELS = [
+  'gemini-2.5-pro',
+  'gemini-2.5-flash',
+  'gemini-1.5-pro-latest',
+  'gemini-1.5-pro',
+  'gemini-pro',
+] as const;
+
 export class GeminiClient {
   private genAI: GoogleGenerativeAI;
   private model: any;
+  private modelName: string;
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
+    
+    // Use environment variable or fall back to first available model
+    const preferredModel = process.env.GEMINI_MODEL || GEMINI_MODELS[0];
+    this.modelName = this.selectModel(preferredModel);
+    
+    console.log(`[Gemini] Using model: ${this.modelName}`);
+    
     this.model = this.genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-pro',
+      model: this.modelName,
       generationConfig: {
-        temperature: 0.7, // Balance creativity with consistency
+        temperature: 0.3, // Lower temperature for more consistent JSON
         topP: 0.95,
         topK: 40,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 8192, // Increased to allow complete responses
       }
     });
+  }
+
+  /**
+   * Select a working model with fallback logic
+   */
+  private selectModel(preferred: string): string {
+    // If preferred model is in our known list, use it
+    if (GEMINI_MODELS.includes(preferred as any)) {
+      return preferred;
+    }
+    
+    // Otherwise, warn and use default
+    console.warn(
+      `[Gemini] Model "${preferred}" not in known models list. ` +
+      `Falling back to ${GEMINI_MODELS[0]}. ` +
+      `Available models: ${GEMINI_MODELS.join(', ')}`
+    );
+    
+    return GEMINI_MODELS[0];
   }
 
   /**
@@ -72,17 +108,10 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
 }`;
 
     try {
-      const result = await retryWithBackoff(
-        async () => {
-          const response = await this.model.generateContent(prompt);
-          return response.response.text();
-        },
-        3,
-        2000
-      );
+      const result = await this.generateWithFallback(prompt);
 
       const cleanedResult = this.cleanJsonResponse(result);
-      const parsed = JSON.parse(cleanedResult);
+      const parsed = this.parseJsonSafely(cleanedResult);
 
       // Validate required fields
       if (!parsed.purpose || !parsed.features || !parsed.target_users || !parsed.project_type) {
@@ -98,6 +127,62 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
     } catch (error) {
       console.error('Failed to extract project purpose:', error);
       throw new GeminiAPIError('Failed to extract project purpose from README', error);
+    }
+  }
+
+  /**
+   * Generate content with automatic model fallback on 404 errors
+   */
+  private async generateWithFallback(prompt: string): Promise<string> {
+    let lastError: any;
+    
+    // Try current model first
+    try {
+      return await retryWithBackoff(
+        async () => {
+          const response = await this.model.generateContent(prompt);
+          return response.response.text();
+        },
+        2, // Reduced retries since we'll try other models
+        2000
+      );
+    } catch (error: any) {
+      lastError = error;
+      
+      // Check if it's a 404 model not found error
+      if (error?.status === 404 || error?.details?.status === 404) {
+        console.warn(`[Gemini] Model ${this.modelName} not available (404). Trying fallback models...`);
+        
+        // Try each fallback model
+        for (const fallbackModel of GEMINI_MODELS) {
+          if (fallbackModel === this.modelName) continue; // Skip current model
+          
+          try {
+            console.log(`[Gemini] Trying fallback model: ${fallbackModel}`);
+            const fallbackModelInstance = this.genAI.getGenerativeModel({ 
+              model: fallbackModel,
+              generationConfig: this.model.generationConfig
+            });
+            
+            const response = await fallbackModelInstance.generateContent(prompt);
+            const text = response.response.text();
+            
+            // Success! Update our model for future calls
+            console.log(`[Gemini] Successfully switched to model: ${fallbackModel}`);
+            this.modelName = fallbackModel;
+            this.model = fallbackModelInstance;
+            
+            return text;
+          } catch (fallbackError: any) {
+            console.warn(`[Gemini] Fallback model ${fallbackModel} also failed:`, fallbackError?.message);
+            lastError = fallbackError;
+            continue;
+          }
+        }
+      }
+      
+      // All models failed
+      throw lastError;
     }
   }
 
@@ -139,109 +224,70 @@ ${sectionGuidance}
 === PROJECT-SPECIFIC EXAMPLE TASK ===
 ${exampleTask}
 
-=== REQUIRED OUTPUT STRUCTURE ===
-Return ONLY valid JSON (no markdown, no code blocks, no preamble).
+=== SIMPLIFIED OUTPUT STRUCTURE ===
+Return ONLY valid JSON. Create 5-6 essential setup tasks.
 
-EACH TASK MUST HAVE THIS EXACT STRUCTURE:
+TASK STRUCTURE (keep it simple):
 {
   "id": "task-1",
-  "title": "Install Node.js v18+",
+  "title": "Short title",
   "description": {
-    "summary": "Brief 1-2 sentence overview",
-    "why_needed": "Why THIS project needs this",
-    "learning_goal": "What you'll learn"
+    "summary": "One sentence",
+    "why_needed": "One sentence",
+    "learning_goal": "One sentence"
   },
   "steps": [
     {
       "order": 1,
-      "action": "Download",
-      "details": "Visit nodejs.org and download LTS version",
-      "os_specific": {
-        "mac": "Download .pkg installer",
-        "windows": "Download .msi installer", 
-        "linux": "Use apt or yum"
-      }
+      "action": "Action name",
+      "details": "Brief details",
+      "os_specific": null
     }
   ],
   "commands": [
     {
-      "command": "node --version",
-      "description": "Check Node.js version",
-      "expected_output": "v18.x.x or higher",
+      "command": "command here",
+      "description": "What it does",
+      "expected_output": "Expected result",
       "os": "all"
     }
   ],
-  "code_blocks": [
-    {
-      "type": "file_content",
-      "file_path": ".env",
-      "language": "bash",
-      "content": "DATABASE_URL=postgresql://...",
-      "explanation": "Database connection string"
-    }
-  ],
-  "references": [
-    {
-      "text": "Node.js Documentation",
-      "url": "https://nodejs.org/docs",
-      "type": "documentation",
-      "relevance": "Official installation guide"
-    }
-  ],
-  "tips": [
-    {
-      "text": "Use nvm to manage Node versions",
-      "type": "pro_tip",
-      "emphasis": ["nvm"]
-    }
-  ],
-  "warnings": [
-    {
-      "text": "Don't use sudo for npm packages",
-      "severity": "important",
-      "os_specific": true,
-      "emphasis": ["sudo"]
-    }
-  ],
+  "code_blocks": [],
+  "references": [],
+  "tips": [],
+  "warnings": [],
   "verification": {
-    "how_to_verify": "Run node --version",
-    "expected_result": "Should show v18.x.x",
-    "troubleshooting": [
-      {
-        "problem": "Command not found",
-        "solution": "Restart terminal",
-        "command": null
-      }
-    ]
+    "how_to_verify": "How to check",
+    "expected_result": "What to expect",
+    "troubleshooting": []
   },
   "difficulty": "beginner",
   "estimated_time": "10 minutes",
   "depends_on": []
 }
 
-FULL ROADMAP STRUCTURE:
+ROADMAP STRUCTURE:
 {
   "repository_name": "${analysisData.repository_metadata?.name || 'Unknown Project'}",
-  "total_tasks": <count>,
-  "estimated_completion_time": "2-4 hours",
+  "total_tasks": 5,
+  "estimated_completion_time": "1-2 hours",
   "sections": [
     {
       "id": "section-1",
-      "title": "Understanding ${analysisData.repository_metadata?.name || 'the Project'}",
-      "description": "Learn what this ${analysisData.purpose?.project_type || 'project'} does",
-      "tasks": [<tasks with structure above>]
+      "title": "Setup",
+      "description": "Get started",
+      "tasks": [/* 5-6 tasks */]
     }
   ]
 }
 
-CRITICAL RULES:
-- EVERY task MUST have description as an OBJECT with summary, why_needed, learning_goal
-- EVERY task MUST have steps array (not instructions string)
-- EVERY task MUST have commands as array of OBJECTS (not strings)
-- Include code_blocks for .env files, config files, etc.
-- Include verification section for EVERY task
-- NO comments in code blocks - only clean code
-- Use "beginner", "intermediate", or "advanced" for difficulty`;
+CRITICAL:
+- Keep ALL text SHORT (under 100 chars)
+- Maximum 2-3 steps per task
+- Maximum 1-2 commands per task
+- Leave code_blocks, references, tips, warnings as empty arrays if not critical
+- Focus on: clone repo, install dependencies, configure env, run project
+- VALID JSON ONLY - no trailing commas, proper escaping`;
 
     try {
       const result = await retryWithBackoff(
@@ -253,15 +299,33 @@ CRITICAL RULES:
         3000
       );
 
+      console.log('[Gemini] Received response, length:', result.length);
+      
+      // Check if response is suspiciously large (might indicate runaway generation)
+      if (result.length > 100000) {
+        console.warn('[Gemini] Response is very large (>100KB), this might cause parsing issues');
+      }
+      
       const cleanedResult = this.cleanJsonResponse(result);
-      const parsed = JSON.parse(cleanedResult);
+      console.log('[Gemini] Cleaned response, length:', cleanedResult.length);
+      
+      const parsed = this.parseJsonSafely(cleanedResult);
+      console.log('[Gemini] Successfully parsed JSON');
 
       // Validate and normalize structure
       this.validateAndNormalizeRoadmap(parsed);
+      console.log('[Gemini] Roadmap validated and normalized');
 
       return parsed as Roadmap;
     } catch (error) {
-      console.error('Failed to generate roadmap:', error);
+      console.error('[Gemini] Failed to generate roadmap:', error);
+      
+      // Log more details for debugging
+      if (error instanceof Error && error.message.includes('JSON')) {
+        console.error('[Gemini] This appears to be a JSON parsing error.');
+        console.error('[Gemini] Try reducing the prompt complexity or using a simpler structure.');
+      }
+      
       throw new GeminiAPIError('Failed to generate setup roadmap', error);
     }
   }
@@ -555,7 +619,7 @@ ${sections.map((s, i) => `${i + 1}. ${s}`).join('\n')}
   }
 
   /**
-   * Clean JSON response from Gemini (remove markdown code blocks)
+   * Clean JSON response from Gemini (remove markdown code blocks and fix common issues)
    */
   private cleanJsonResponse(text: string): string {
     let cleaned = text.trim();
@@ -567,7 +631,119 @@ ${sections.map((s, i) => `${i + 1}. ${s}`).join('\n')}
       cleaned = cleaned.replace(/```\n?/g, '');
     }
 
+    // Remove any leading/trailing text before/after JSON
+    const jsonStart = cleaned.indexOf('{');
+    const jsonEnd = cleaned.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+    }
+
+    // Fix common JSON issues
+    // 1. Remove trailing commas before closing braces/brackets
+    cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
+    
+    // 2. Fix unescaped newlines in strings (common in descriptions)
+    // This is tricky - we need to be careful not to break valid JSON
+    
+    // 3. Remove any control characters that might break JSON
+    cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, '');
+
     return cleaned.trim();
+  }
+
+  /**
+   * Parse JSON with better error handling and recovery
+   */
+  private parseJsonSafely(text: string): any {
+    try {
+      // First attempt: direct parse
+      return JSON.parse(text);
+    } catch (firstError) {
+      console.warn('Initial JSON parse failed, attempting cleanup...', firstError);
+      
+      try {
+        // Second attempt: Try to repair truncated JSON
+        let cleaned = text;
+        
+        // Find the actual JSON boundaries
+        const stack: string[] = [];
+        let inString = false;
+        let escapeNext = false;
+        let jsonStart = -1;
+        let lastValidPos = -1;
+        
+        for (let i = 0; i < cleaned.length; i++) {
+          const char = cleaned[i];
+          
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+          
+          if (char === '\\') {
+            escapeNext = true;
+            continue;
+          }
+          
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+          
+          if (inString) continue;
+          
+          if (char === '{' || char === '[') {
+            if (stack.length === 0) jsonStart = i;
+            stack.push(char);
+          } else if (char === '}' || char === ']') {
+            const expected = char === '}' ? '{' : '[';
+            if (stack.length > 0 && stack[stack.length - 1] === expected) {
+              stack.pop();
+              if (stack.length === 0) {
+                lastValidPos = i;
+                break; // Found complete JSON
+              }
+            }
+          }
+        }
+        
+        // If we found a complete JSON object, use it
+        if (jsonStart !== -1 && lastValidPos !== -1) {
+          cleaned = cleaned.substring(jsonStart, lastValidPos + 1);
+          return JSON.parse(cleaned);
+        }
+        
+        // If JSON is incomplete, try to close it
+        if (jsonStart !== -1 && stack.length > 0) {
+          console.warn('JSON appears truncated, attempting to close brackets...');
+          let repaired = cleaned.substring(jsonStart);
+          
+          // Close any open strings
+          if (inString) {
+            repaired += '"';
+          }
+          
+          // Close all open brackets in reverse order
+          while (stack.length > 0) {
+            const open = stack.pop();
+            repaired += open === '{' ? '}' : ']';
+          }
+          
+          try {
+            return JSON.parse(repaired);
+          } catch (repairError) {
+            console.warn('Repair attempt failed:', repairError);
+          }
+        }
+        
+        throw firstError;
+      } catch (secondError) {
+        console.error('JSON parse failed after cleanup:', secondError);
+        console.error('Problematic JSON (first 500 chars):', text.substring(0, 500));
+        console.error('Problematic JSON (last 500 chars):', text.substring(Math.max(0, text.length - 500)));
+        throw new Error(`Failed to parse JSON: ${secondError instanceof Error ? secondError.message : 'Unknown error'}`);
+      }
+    }
   }
 
   /**
