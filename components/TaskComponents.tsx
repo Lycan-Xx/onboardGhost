@@ -1,6 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { 
+  ListOrdered, 
+  Terminal, 
+  Code2, 
+  Link as LinkIcon, 
+  Lightbulb, 
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown
+} from 'lucide-react';
 
 // Task Steps Component
 interface TaskStep {
@@ -18,7 +28,7 @@ export function TaskSteps({ steps }: { steps: TaskStep[] }) {
   return (
     <div>
       <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-lg">
-        <span className="text-pink-400">📋</span>
+        <ListOrdered className="w-5 h-5 text-pink-400" />
         Steps
       </h3>
       <ol className="space-y-4">
@@ -108,7 +118,7 @@ export function CommandBlocks({ commands }: { commands: (string | CommandBlock)[
   return (
     <div>
       <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-lg">
-        <span className="text-pink-400">⚡</span>
+        <Terminal className="w-5 h-5 text-pink-400" />
         Commands
       </h3>
       <div className="space-y-3">
@@ -216,7 +226,7 @@ export function CodeBlocks({ codeBlocks }: { codeBlocks: CodeBlock[] }) {
   return (
     <div>
       <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-lg">
-        <span className="text-pink-400">💻</span>
+        <Code2 className="w-5 h-5 text-pink-400" />
         Code
       </h3>
       <div className="space-y-4">
@@ -306,7 +316,7 @@ export function ReferencesSection({ references }: { references: Reference[] }) {
   return (
     <div>
       <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-lg">
-        <span className="text-pink-400">🔗</span>
+        <LinkIcon className="w-5 h-5 text-pink-400" />
         Helpful Links
       </h3>
       <div className="space-y-3">
@@ -384,7 +394,7 @@ export function TipsSection({ tips }: { tips: (string | Tip)[] }) {
   return (
     <div>
       <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-lg">
-        <span className="text-pink-400">💡</span>
+        <Lightbulb className="w-5 h-5 text-pink-400" />
         Tips
       </h3>
       <div className="space-y-3">
@@ -461,7 +471,7 @@ export function WarningsSection({ warnings }: { warnings: (string | Warning)[] }
   return (
     <div>
       <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-lg">
-        <span className="text-pink-400">⚠️</span>
+        <AlertTriangle className="w-5 h-5 text-pink-400" />
         Warnings
       </h3>
       <div className="space-y-3">
@@ -508,7 +518,8 @@ export function WarningsSection({ warnings }: { warnings: (string | Warning)[] }
   );
 }
 
-// Verification Component
+// Verification Component - Commented out until data is populated
+/*
 interface Verification {
   how_to_verify: string;
   expected_result: string;
@@ -522,6 +533,11 @@ interface Verification {
 export function VerificationSection({ verification }: { verification: Verification }) {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Don't render if verification data is empty
+  if (!verification?.how_to_verify && !verification?.expected_result) {
+    return null;
+  }
+
   return (
     <div className="bg-green-900/10 border border-green-500/30 rounded-lg overflow-hidden">
       <button
@@ -529,47 +545,43 @@ export function VerificationSection({ verification }: { verification: Verificati
         className="w-full flex items-center justify-between p-4 text-left hover:bg-green-900/20 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <span className="text-2xl">✓</span>
+          <CheckCircle2 className="w-5 h-5 text-green-400" />
           <div>
             <h3 className="font-semibold text-white text-lg">Verification</h3>
             <p className="text-xs text-gray-400">How to check if this worked</p>
           </div>
         </div>
-        <svg
+        <ChevronDown 
           className={`w-5 h-5 text-green-400 transition-transform ${
             isOpen ? 'rotate-180' : ''
           }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        />
       </button>
 
       {isOpen && (
         <div className="px-4 pb-4 space-y-4 border-t border-green-500/30">
-          {/* How to Verify */}
-          <div className="mt-4">
-            <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">
-              How to Verify
-            </p>
-            <p className="text-sm text-gray-300 leading-relaxed">
-              {verification.how_to_verify}
-            </p>
-          </div>
+          {verification.how_to_verify && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">
+                How to Verify
+              </p>
+              <p className="text-sm text-gray-300 leading-relaxed">
+                {verification.how_to_verify}
+              </p>
+            </div>
+          )}
 
-          {/* Expected Result */}
-          <div>
-            <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">
-              Expected Result
-            </p>
-            <p className="text-sm text-gray-300 leading-relaxed bg-gray-900/50 p-3 rounded border border-gray-800">
-              {verification.expected_result}
-            </p>
-          </div>
+          {verification.expected_result && (
+            <div>
+              <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">
+                Expected Result
+              </p>
+              <p className="text-sm text-gray-300 leading-relaxed bg-gray-900/50 p-3 rounded border border-gray-800">
+                {verification.expected_result}
+              </p>
+            </div>
+          )}
 
-          {/* Troubleshooting */}
           {verification.troubleshooting && verification.troubleshooting.length > 0 && (
             <div>
               <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wide mb-2">
@@ -599,3 +611,4 @@ export function VerificationSection({ verification }: { verification: Verificati
     </div>
   );
 }
+*/

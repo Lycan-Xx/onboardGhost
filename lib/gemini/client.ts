@@ -170,25 +170,52 @@ Focus on these ESSENTIAL fields: steps, commands, code_blocks, description, tips
       ]
     },
     {
-      "id": "section-setup",
-      "title": "Environment Setup",
-      "description": "Install required tools",
+      "id": "section-clone",
+      "title": "Getting the Code",
+      "description": "Clone the repository to your local machine",
       "tasks": [
         {
           "id": "task-2",
-          "title": "Install Node.js",
-          "description": "Install Node.js runtime which is required for this Next.js project",
+          "title": "Clone Repository",
+          "description": "Download the project source code from GitHub",
           "steps": [
-            {"order": 1, "action": "Check version", "details": "Run node --version to see if Node is installed", "os_specific": null},
-            {"order": 2, "action": "Install if needed", "details": "Download from nodejs.org if not installed", "os_specific": null}
+            {"order": 1, "action": "Clone repo", "details": "Use git clone to download the repository", "os_specific": null},
+            {"order": 2, "action": "Navigate to folder", "details": "Change into the project directory", "os_specific": null}
           ],
-          "commands": ["node --version", "npm --version"],
+          "commands": ["git clone https://github.com/owner/repo.git", "cd repo"],
           "code_blocks": [],
-          "tips": ["Use nvm for version management", "Node 18+ is recommended"],
+          "tips": ["Make sure you have Git installed", "Use SSH if you have it configured"],
           "difficulty": "beginner"
-        },
+        }
+      ]
+    },
+    {
+      "id": "section-install",
+      "title": "Installing Dependencies",
+      "description": "Install required packages and tools",
+      "tasks": [
         {
           "id": "task-3",
+          "title": "Install Dependencies",
+          "description": "Install all npm packages required by this project",
+          "steps": [
+            {"order": 1, "action": "Install packages", "details": "Run npm install to download all dependencies", "os_specific": null},
+            {"order": 2, "action": "Verify installation", "details": "Check that node_modules folder was created", "os_specific": null}
+          ],
+          "commands": ["npm install", "ls node_modules"],
+          "code_blocks": [],
+          "tips": ["This may take a few minutes", "Make sure you have Node.js 18+ installed"],
+          "difficulty": "beginner"
+        }
+      ]
+    },
+    {
+      "id": "section-config",
+      "title": "Environment Configuration",
+      "description": "Set up environment variables",
+      "tasks": [
+        {
+          "id": "task-4",
           "title": "Configure Environment",
           "description": "Set up environment variables needed for this project",
           "steps": [
@@ -336,23 +363,31 @@ CRITICAL RULES:
   private buildSectionGuidance(analysisData: AnalysisData): string {
     const sections: string[] = [
       'Understanding the Project',
-      'Environment Setup',
       'Getting the Code',
+      'Installing Dependencies',
     ];
+
+    if (analysisData.env_vars && analysisData.env_vars.length > 0) {
+      sections.push('Environment Configuration');
+    }
 
     if (analysisData.database && analysisData.database.length > 0) {
       sections.push('Database Setup');
     }
 
-    if (analysisData.env_vars && analysisData.env_vars.length > 0) {
-      sections.push('Configuration');
-    }
-
     sections.push('Running the Application');
 
     let guidance = `
-=== REQUIRED SECTIONS (in this exact order) ===
+=== REQUIRED SECTIONS (in chronological order) ===
 ${sections.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+
+Follow typical development workflow:
+1. Understand what the project does
+2. Clone the repository
+3. Install dependencies
+4. Configure environment variables
+5. Set up database (if needed)
+6. Run the application
 `;
 
     return guidance;

@@ -11,7 +11,7 @@ import {
   TipsSection, 
   WarningsSection, 
   ReferencesSection,
-  VerificationSection 
+  // VerificationSection // Commented out until data is populated
 } from '@/components/TaskComponents';
 
 interface TaskDescription {
@@ -591,10 +591,10 @@ export default function Tasks() {
                     <WarningsSection warnings={selectedTask.warnings} />
                   )}
 
-                  {/* Verification (New Format) */}
-                  {selectedTask.verification && (
+                  {/* Verification (New Format) - Commented out until data is populated */}
+                  {/* {selectedTask.verification && (
                     <VerificationSection verification={selectedTask.verification} />
-                  )}
+                  )} */}
                 </div>
 
                 {/* Mark Complete Button */}

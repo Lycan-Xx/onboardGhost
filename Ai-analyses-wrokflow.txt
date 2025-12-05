@@ -267,3 +267,86 @@ This is exactly how most production apps work - they don't expect external APIs 
 
 
 
+
+
+
+
+
+
+Fix: Roadmap data loss - the wild goose chase that led to analyzer.ts
+
+The Problem:
+Tasks were showing up with empty arrays for steps, commands, tips, and code_blocks.
+Users would see task titles but no actual instructions or content to follow.
+
+The Confusing Journey:
+We went down several rabbit holes trying to fix this:
+
+1. First suspect: Gemini's JSON output
+   - Thought Gemini was returning malformed JSON
+   - Added JSON repair logic, error handling, retry mechanisms
+   - Changed models (gemini-1.5-pro, gemini-2.5-flash, back to 1.5-pro)
+   - Adjusted temperature, token limits, prompt complexity
+   - Result: Gemini was actually working fine! 🤦
+
+2. Second suspect: The prompt structure
+   - Simplified the prompt thinking it was too complex
+   - Removed fields (verification, references, depends_on)
+   - Added explicit examples with populated arrays
+   - Made it super clear: 'DO NOT LEAVE ARRAYS EMPTY!'
+   - Result: Gemini was STILL returning good data! 🤦🤦
+
+3. Third suspect: validateAndNormalizeRoadmap in Gemini client
+   - Found it was adding empty arrays as defaults
+   - Removed it, replaced with basic validation
+   - Result: Data was STILL disappearing! 🤦🤦🤦
+
+4. Added logging everywhere
+   - Gemini client: 'I have 3 steps, 2 commands, 3 tips!'
+   - API route: 'I see... 0 steps, 0 commands, 0 tips?'
+   - Finally realized: data was being lost BETWEEN Gemini and API
+
+The Real Culprit:
+Found it in lib/pipeline/analyzer.ts (line 227-241)
+
+The analyzer was doing a 'transformation' that only kept specific fields:
+- Kept: id, title, description
+- LOST: steps, commands, code_blocks, tips, warnings, references
+
+It was like having a delivery person who opens your package, 
+throws away everything except the shipping label, and delivers 
+you an empty box. Thanks, analyzer! 📦❌
+
+The Fix:
+Changed the transformation to pass through ALL fields from Gemini:
+```typescript
+tasks: section.tasks.map((task: any) => ({
+  ...task, // Keep EVERYTHING Gemini sends
+  // Just add legacy fields for compatibility
+}))
+```
+
+Now the data flows correctly:
+Gemini → Analyzer (passes through) → Transformer (enriches) → UI (renders) ✅
+
+Lessons Learned:
+- When data disappears, add logging at EVERY step
+- Don't assume the problem is where you first look
+- Sometimes the bug is in the 'glue code' between components
+- The transformer we built was actually perfect - it just never got the data!
+
+Side Benefits:
+Along the way we also:
+- Built a robust transformer system for data normalization
+- Improved Gemini prompt clarity and error handling
+- Added comprehensive logging for debugging
+- Created documentation for the transformer architecture
+
+So... not a total waste of time? 😅
+
+
+
+
+
+
+
