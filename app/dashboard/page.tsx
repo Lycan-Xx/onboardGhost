@@ -1,40 +1,98 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/lib/contexts/AuthContext';
+
+interface Analysis {
+  repoId: string;
+  repository_name: string;
+  progress: number;
+  started_at: Date;
+  last_activity: Date;
+  total_tasks: number;
+  completed_tasks: number;
+}
 
 function DashboardContent() {
-  const [repoUrl, setRepoUrl] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [oauthStatus, setOauthStatus] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, loading: authLoading, isAuthenticated, hasGitHubToken, signInAnonymous, initiateGitHubAuth } = useAuth();
+  
+  const [repoUrl, setRepoUrl] = useState('');
+  const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [loadingAnalyses, setLoadingAnalyses] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // Handle OAuth callback
   useEffect(() => {
-    // Check for OAuth status
     const oauth = searchParams.get('oauth');
     const errorParam = searchParams.get('error');
-    
+
     if (oauth === 'success') {
-      setOauthStatus('GitHub connected successfully! You can now analyze private repositories.');
+      setError(null);
+      // Reload analyses after successful OAuth
+      if (user) {
+        fetchAnalyses();
+      }
+    } else if (errorParam === 'oauth_not_configured') {
+      setError('GitHub OAuth is not configured. Please check GITHUB_OAUTH_SETUP.md for setup instructions.');
     } else if (errorParam) {
-      setOauthStatus(`OAuth failed: ${errorParam}`);
+      setError('GitHub authentication failed. Please try again.');
     }
-  }, [searchParams]);
+  }, [searchParams, user]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  // Auto sign-in anonymously if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      signInAnonymous();
+    }
+  }, [authLoading, isAuthenticated]);
 
-    // Basic URL validation
-    if (!repoUrl.includes('github.com')) {
-      setError('Please enter a valid GitHub repository URL');
+  // Fetch user's analyses
+  useEffect(() => {
+    if (isAuthenticated && hasGitHubToken) {
+      fetchAnalyses();
+    }
+  }, [isAuthenticated, hasGitHubToken]);
+
+  const fetchAnalyses = async () => {
+    if (!user) return;
+
+    setLoadingAnalyses(true);
+    try {
+      const response = await fetch(`/api/user-analyses?userId=${user.uid}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setAnalyses(data.analyses || []);
+      } else {
+        console.error('Failed to fetch analyses:', data.error);
+      }
+    } catch (err) {
+      console.error('Error fetching analyses:', err);
+    } finally {
+      setLoadingAnalyses(false);
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!repoUrl.trim()) {
+      setError('Please enter a repository URL');
       return;
     }
 
-    setIsAnalyzing(true);
+    // Check if user has reached the limit
+    if (hasGitHubToken && analyses.length >= 2) {
+      setError('You have reached the maximum of 2 analyses. Please delete one to continue.');
+      return;
+    }
+
+    setAnalyzing(true);
+    setError(null);
 
     try {
       const response = await fetch('/api/analyze-repo', {
@@ -44,132 +102,261 @@ function DashboardContent() {
         },
         body: JSON.stringify({
           repoUrl,
-          userId: 'demo-user', // In production, get from auth
+          userId: user?.uid || 'demo-user',
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Analysis failed');
+        throw new Error(data.error || 'Failed to analyze repository');
       }
 
-      // Redirect to loading page with repo ID
+      // Redirect to loading page
       router.push(`/loading?repoId=${data.repoId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
-      setIsAnalyzing(false);
+      setAnalyzing(false);
     }
   };
 
-  const handleConnectGitHub = () => {
-    window.location.href = '/api/auth/github?userId=demo-user';
+  const handleDelete = async (repoId: string) => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/delete-analysis', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          repoId,
+        }),
+      });
+
+      if (response.ok) {
+        // Remove from local state
+        setAnalyses(analyses.filter(a => a.repoId !== repoId));
+        setDeleteConfirm(null);
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to delete analysis');
+      }
+    } catch (err) {
+      setError('Failed to delete analysis');
+    }
   };
 
+  const handleContinue = (repoId: string) => {
+    router.push(`/tasks?repoId=${repoId}`);
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-      <div className="container mx-auto px-4 py-16">
-        {/* Header */}
-        <header className="flex justify-between items-center mb-16">
-          <div className="flex items-center gap-3">
-            <span className="text-4xl">👻</span>
-            <span className="text-2xl font-bold text-white">OnboardGhost</span>
-          </div>
-          <Link href="/profile">
-            <button className="w-12 h-12 flex items-center justify-center bg-white/10 border border-white/20 rounded-full hover:bg-white/20 transition-all duration-300">
-              <span className="text-white text-2xl">👤</span>
-            </button>
+    <div className="min-h-screen bg-[#0a0a0f] flex flex-col p-4 sm:p-6 lg:p-8">
+      {/* Header */}
+      <header className="w-full max-w-7xl mx-auto mb-12">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-white">OnboardGhost</h1>
+          <Link 
+            href="/profile" 
+            className="flex items-center gap-2 text-gray-400 hover:text-pink-400 transition-colors"
+          >
+            <span className="material-symbols-outlined">account_circle</span>
           </Link>
-        </header>
+        </div>
+      </header>
 
-        <div className="max-w-2xl mx-auto">
-          {/* Title */}
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold text-white mb-4">
-              Welcome Back
-            </h1>
-            <p className="text-xl text-gray-300">
-              AI-powered repository analysis and onboarding roadmaps
-            </p>
+      {/* Welcome Section */}
+      <main className="flex-grow w-full max-w-7xl mx-auto">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
+            Welcome Back
+          </h2>
+          <p className="text-gray-400">Select a repository to get started</p>
+        </div>
+
+        {/* Repository Input Section */}
+        <div className="max-w-4xl mx-auto mb-16">
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            {/* Dropdown - Disabled until GitHub auth */}
+            <div className="relative w-full sm:w-auto">
+              <select
+                disabled={!hasGitHubToken}
+                className="w-full sm:w-64 px-4 py-3 bg-[#1e293b] border border-gray-700 rounded-lg text-gray-400 cursor-not-allowed disabled:opacity-50"
+              >
+                <option>Choose from your repositories</option>
+              </select>
+              {!hasGitHubToken && isAuthenticated && (
+                <button
+                  onClick={initiateGitHubAuth}
+                  className="absolute inset-0 flex items-center justify-center bg-[#1e293b]/90 rounded-lg text-sm text-pink-400 hover:text-pink-300 transition-colors"
+                >
+                  <span className="material-symbols-outlined mr-2">lock</span>
+                  Sign in with GitHub
+                </button>
+              )}
+            </div>
+
+            <span className="text-gray-500">OR</span>
+
+            {/* URL Input */}
+            <input
+              type="text"
+              value={repoUrl}
+              onChange={(e) => setRepoUrl(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleAnalyze()}
+              placeholder="Paste a public repository link"
+              className="flex-1 px-4 py-3 bg-[#1e293b] border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              disabled={analyzing}
+            />
+
+            {/* Analyze Button */}
+            <button
+              onClick={handleAnalyze}
+              disabled={analyzing || !repoUrl.trim()}
+              className="px-8 py-3 bg-pink-500 text-[#0a0a0f] font-bold rounded-lg hover:bg-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {analyzing ? 'Analyzing...' : 'Analyze'}
+            </button>
           </div>
 
-          {/* OAuth Status */}
-          {oauthStatus && (
-            <div className={`mb-6 p-4 rounded-lg ${
-              oauthStatus.includes('success') 
-                ? 'bg-green-100 text-green-800 border border-green-300' 
-                : 'bg-red-100 text-red-800 border border-red-300'
-            }`}>
-              {oauthStatus}
+          {/* Error Message */}
+          {error && (
+            <div className="mt-4 p-4 bg-red-900/20 border border-red-500/50 rounded-lg text-red-300 text-sm">
+              {error}
             </div>
           )}
+        </div>
 
-          {/* Main Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <input
-                type="url"
-                value={repoUrl}
-                onChange={(e) => setRepoUrl(e.target.value)}
-                placeholder="https://github.com/owner/repository"
-                className="w-full px-6 py-4 text-lg rounded-lg border-2 border-white/20 bg-white/10 text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent backdrop-blur-sm"
-                disabled={isAnalyzing}
-                required
-              />
-            </div>
+        {/* Recent Analyses Section */}
+        {hasGitHubToken && (
+          <div className="max-w-6xl mx-auto">
+            <h3 className="text-xl font-bold text-white mb-6">Recent Analyses</h3>
 
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                {error}
+            {loadingAnalyses ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-pink-500 mx-auto mb-4"></div>
+                <p className="text-gray-400">Loading your analyses...</p>
+              </div>
+            ) : analyses.length === 0 ? (
+              <div className="text-center py-12 bg-[#1e293b] border border-gray-700 rounded-lg">
+                <span className="material-symbols-outlined text-6xl text-gray-600 mb-4">folder_open</span>
+                <p className="text-gray-400 mb-2">No analyses yet</p>
+                <p className="text-gray-500 text-sm">Analyze a repository to get started</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {analyses.map((analysis) => (
+                  <div
+                    key={analysis.repoId}
+                    className="bg-[#1e293b] border border-gray-700 rounded-lg p-6 hover:border-pink-500/50 transition-all group relative"
+                  >
+                    {/* Delete Confirmation Overlay */}
+                    {deleteConfirm === analysis.repoId && (
+                      <div className="absolute inset-0 bg-[#0a0a0f]/95 rounded-lg flex flex-col items-center justify-center p-6 z-10">
+                        <p className="text-white text-center mb-4">
+                          Delete this analysis?
+                        </p>
+                        <p className="text-gray-400 text-sm text-center mb-6">
+                          This will remove all progress for {analysis.repository_name}
+                        </p>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleDelete(analysis.repoId)}
+                            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirm(null)}
+                            className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Delete Button */}
+                    <button
+                      onClick={() => setDeleteConfirm(analysis.repoId)}
+                      className="absolute top-4 right-4 text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <span className="material-symbols-outlined text-xl">delete</span>
+                    </button>
+
+                    {/* Repository Name */}
+                    <h4 className="text-lg font-semibold text-white mb-2 pr-8">
+                      {analysis.repository_name}
+                    </h4>
+
+                    {/* Progress Bar */}
+                    <div className="mb-4">
+                      <div className="flex justify-between text-sm text-gray-400 mb-2">
+                        <span>{analysis.completed_tasks} / {analysis.total_tasks} tasks</span>
+                        <span>{analysis.progress}% complete</span>
+                      </div>
+                      <div className="w-full bg-gray-800 rounded-full h-2">
+                        <div
+                          className="bg-pink-500 h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${analysis.progress}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Continue Button */}
+                    <button
+                      onClick={() => handleContinue(analysis.repoId)}
+                      className="w-full px-4 py-2 bg-pink-500/10 text-pink-400 font-semibold rounded-lg hover:bg-pink-500/20 transition-colors"
+                    >
+                      Continue
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={isAnalyzing}
-              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-4 px-6 rounded-lg text-lg transition-colors shadow-lg"
-            >
-              {isAnalyzing ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="animate-spin">⚙️</span>
-                  Analyzing Repository...
-                </span>
-              ) : (
-                'Analyze Repository'
-              )}
-            </button>
-          </form>
+            {/* Limit Warning */}
+            {analyses.length >= 2 && (
+              <div className="mt-6 p-4 bg-yellow-900/20 border border-yellow-500/50 rounded-lg text-yellow-300 text-sm text-center">
+                You've reached the maximum of 2 analyses. Delete one to analyze a new repository.
+              </div>
+            )}
+          </div>
+        )}
 
-          {/* GitHub OAuth */}
-          <div className="mt-8 text-center">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="flex-1 border-t border-white/20"></div>
-              <span className="text-gray-300">Optional</span>
-              <div className="flex-1 border-t border-white/20"></div>
-            </div>
-            
+        {/* Not Authenticated Message */}
+        {!hasGitHubToken && isAuthenticated && (
+          <div className="max-w-2xl mx-auto text-center py-12 bg-[#1e293b] border border-gray-700 rounded-lg">
+            <span className="material-symbols-outlined text-6xl text-pink-500 mb-4">psychology</span>
+            <h3 className="text-xl font-bold text-white mb-2">
+              Sign in to save your progress
+            </h3>
+            <p className="text-gray-400 mb-6">
+              Connect your GitHub account to access your repositories and save your onboarding progress
+            </p>
             <button
-              onClick={handleConnectGitHub}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-600"
+              onClick={initiateGitHubAuth}
+              className="px-6 py-3 bg-pink-500 text-[#0a0a0f] font-bold rounded-lg hover:bg-pink-600 transition-all inline-flex items-center gap-2"
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-              </svg>
-              Connect GitHub for Private Repos
+              <span className="material-symbols-outlined">lock</span>
+              Sign in with GitHub
             </button>
           </div>
-
-          {/* Info */}
-          <div className="mt-8 text-center space-y-2">
-            <p className="text-sm text-gray-400">
-              ✅ Public repositories work immediately
-            </p>
-            <p className="text-sm text-gray-400">
-              🔒 Connect GitHub to analyze private repositories
-            </p>
-          </div>
-        </div>
-      </div>
+        )}
+      </main>
     </div>
   );
 }
@@ -177,10 +364,10 @@ function DashboardContent() {
 export default function Dashboard() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white">Loading...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
         </div>
       </div>
     }>

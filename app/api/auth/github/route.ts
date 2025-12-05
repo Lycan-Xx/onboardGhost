@@ -20,10 +20,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!GITHUB_CLIENT_ID) {
-      return NextResponse.json(
-        { error: 'GitHub OAuth not configured' },
-        { status: 500 }
+    if (!GITHUB_CLIENT_ID || GITHUB_CLIENT_ID === 'your_github_client_id') {
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=oauth_not_configured`
       );
     }
 
