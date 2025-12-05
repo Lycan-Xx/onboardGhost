@@ -1,8 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  reactCompiler: true,
+  output: "export", // ✅ REQUIRED for Cloudflare Pages static hosting
+  images: {
+    unoptimized: true // ✅ REQUIRED so Next/Image works on static hosting
+  },
+  reactCompiler: true
 };
 
 export default nextConfig;
