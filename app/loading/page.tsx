@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { db, auth } from '@/lib/firebase/config';
 
 interface AnalysisLog {
   timestamp: Date;
@@ -108,17 +108,30 @@ function LoadingContent() {
       // Listen to real-time progress updates
       const progressRef = doc(db, 'analysis_progress', repoId);
       console.log('[Loading] Setting up Firestore listener for:', repoId);
+      console.log('[Loading] Firebase config:', {
+        projectId: db.app.options.projectId,
+        hasAuth: !!auth,
+      });
       
       const unsubscribe = onSnapshot(
         progressRef,
-        (doc) => {
-          if (doc.exists()) {
-            const data = doc.data() as AnalysisProgress;
+        (snapshot) => {
+          console.log('[Loading] Snapshot received:', {
+            exists: snapshot.exists(),
+            metadata: {
+              hasPendingWrites: snapshot.metadata.hasPendingWrites,
+              fromCache: snapshot.metadata.fromCache,
+            }
+          });
+
+          if (snapshot.exists()) {
+            const data = snapshot.data() as AnalysisProgress;
             console.log('[Loading] Progress update:', {
               step: data.current_step,
               stepName: data.step_name,
               status: data.step_status,
               logsCount: data.logs?.length || 0,
+              timestamp: data.updated_at,
             });
             setProgress(data);
 
@@ -145,7 +158,10 @@ function LoadingContent() {
         }
       );
 
-      return () => unsubscribe();
+      return () => {
+        console.log('[Loading] Cleaning up Firestore listener');
+        unsubscribe();
+      };
     });
   }, [repoId, router]);
 

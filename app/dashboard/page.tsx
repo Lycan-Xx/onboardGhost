@@ -121,12 +121,23 @@ function DashboardContent() {
     setError(null);
 
     try {
-      // Generate repoId from URL immediately
-      const urlParts = repoUrl.replace('https://github.com/', '').split('/');
-      if (urlParts.length < 2) {
-        throw new Error('Invalid repository URL');
+      // Generate repoId from URL immediately (must match API format)
+      const repoId = repoUrl.replace('https://github.com/', '').replace('/', '-');
+
+      // Get GitHub token if authenticated
+      let githubToken = null;
+      if (hasGitHubToken && user) {
+        try {
+          const tokenResponse = await fetch(`/api/github/token?userId=${user.uid}`);
+          if (tokenResponse.ok) {
+            const tokenData = await tokenResponse.json();
+            githubToken = tokenData.token;
+            console.log('[Dashboard] Retrieved GitHub token for private repo access');
+          }
+        } catch (err) {
+          console.error('[Dashboard] Failed to get GitHub token:', err);
+        }
       }
-      const repoId = `repo_${urlParts[0]}_${urlParts[1]}`;
 
       // Redirect to loading page immediately
       router.push(`/loading?repoId=${repoId}`);
@@ -141,6 +152,7 @@ function DashboardContent() {
           repoUrl,
           userId: hasGitHubToken ? user?.uid : null,
           saveProgress: hasGitHubToken,
+          githubToken,
         }),
       }).catch(err => {
         console.error('Analysis error:', err);
