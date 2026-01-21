@@ -13,7 +13,7 @@ export interface ParsedGitHubUrl {
  * Pattern: https://github.com/{owner}/{repo}
  */
 export function validateGitHubUrl(url: string): boolean {
-  const pattern = /^https:\/\/github\.com\/[^\/]+\/[^\/]+$/;
+  const pattern = /^https:\/\/github\.com\/[^\/]+\/[^\/]+(\.git)?$/;
   return pattern.test(url);
 }
 
@@ -28,7 +28,12 @@ export function parseGitHubUrl(url: string): ParsedGitHubUrl {
 
   const parts = url.replace('https://github.com/', '').split('/');
   const owner = parts[0];
-  const repo = parts[1];
+  let repo = parts[1];
+  
+  // Strip .git extension if present
+  if (repo.endsWith('.git')) {
+    repo = repo.slice(0, -4);
+  }
 
   return { owner, repo, url };
 }
