@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import GhostMentorChat from '@/components/GhostMentorChat';
 import Link from 'next/link';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { 
   TaskSteps, 
   CommandBlocks, 
@@ -117,6 +118,7 @@ function TasksContent() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const repoId = searchParams.get('repoId');
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!repoId) {
@@ -130,7 +132,7 @@ function TasksContent() {
 
   const fetchRoadmap = async () => {
     try {
-      const response = await fetch(`/api/get-roadmap?repoId=${repoId}&userId=demo-user`);
+      const response = await fetch(`/api/get-roadmap?repoId=${repoId}&userId=${user?.uid || 'demo-user'}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -163,7 +165,7 @@ function TasksContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: 'demo-user',
+          userId: user?.uid || 'demo-user',
           repoId,
           taskId,
           completed,
@@ -433,7 +435,7 @@ function TasksContent() {
       </main>
 
       {/* Ghost Mentor Chat */}
-      {repoId && <GhostMentorChat repoId={repoId} userId="demo-user" />}
+      {repoId && <GhostMentorChat repoId={repoId} userId={user?.uid || "demo-user"} />}
     </div>
   );
 }

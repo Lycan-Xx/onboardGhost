@@ -150,8 +150,8 @@ function DashboardContent() {
         },
         body: JSON.stringify({
           repoUrl,
-          userId: hasGitHubToken ? user?.uid : null,
-          saveProgress: hasGitHubToken,
+          userId: user?.uid || 'demo-user',
+          saveProgress: true,
           githubToken,
         }),
       }).catch(err => {

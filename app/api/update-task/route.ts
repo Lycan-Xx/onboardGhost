@@ -15,18 +15,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get current progress
+    // Get current progress — auto-create (upsert) if document doesn't exist yet.
+    // This handles repos that were analyzed before the progress-init fix,
+    // as well as anonymous users whose progress was never seeded.
     const progressRef = adminDb.collection('user_progress').doc(userId).collection('repos').doc(repoId);
     const progressDoc = await progressRef.get();
 
+    // If missing, seed a fresh progress document so the update below always succeeds
     if (!progressDoc.exists) {
-      return NextResponse.json(
-        { error: 'Progress not found' },
-        { status: 404 }
-      );
+      await progressRef.set({
+        user_id: userId,
+        repo_id: repoId,
+        completed_tasks: [],
+        overall_progress_percentage: 0,
+        ghost_solidness: 0,
+        started_at: new Date(),
+        last_activity: new Date(),
+      });
     }
 
-    const currentProgress = progressDoc.data();
+    const currentProgress = progressDoc.exists ? progressDoc.data() : { completed_tasks: [], overall_progress_percentage: 0 };
     if (!currentProgress) {
       return NextResponse.json(
         { error: 'Progress data not found' },
@@ -34,7 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    let completedTasks = currentProgress.completed_tasks || [];
+    let completedTasks: string[] = currentProgress.completed_tasks || [];
 
     // Update completed tasks array
     if (completed && !completedTasks.includes(taskId)) {
@@ -69,15 +77,15 @@ export async function POST(request: NextRequest) {
 
     // Check for milestone celebrations
     const celebrationTriggered = [25, 50, 75, 100].includes(newProgress) && 
-                                  newProgress > currentProgress.overall_progress_percentage;
+                                  newProgress > (currentProgress.overall_progress_percentage || 0);
 
-    // Update progress in Firebase
-    await progressRef.update({
+    // Use set+merge so this works whether the doc was just created or already existed
+    await progressRef.set({
       completed_tasks: completedTasks,
       overall_progress_percentage: newProgress,
       ghost_solidness: newProgress,
       last_activity: new Date(),
-    });
+    }, { merge: true });
 
     return NextResponse.json({
       success: true,
