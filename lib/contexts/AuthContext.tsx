@@ -40,22 +40,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('[AuthContext] Checking GitHub token for user:', userId);
     
     try {
-      const response = await fetch(`/api/auth/check-github?userId=${userId}`);
-      const data = await response.json();
-      
-      console.log('[AuthContext] GitHub token check result:', data);
-      
-      setHasGitHubToken(data.hasToken || false);
-      
-      if (data.hasToken && data.githubUser) {
-        console.log('[AuthContext] GitHub user found:', data.githubUser);
-        setGithubUser(data.githubUser);
-      } else {
-        console.log('[AuthContext] No GitHub user data');
-        setGithubUser(null);
+      // Add retry logic for production - sometimes Firestore has replication lag
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const response = await fetch(`/api/auth/check-github?userId=${userId}`);
+        const data = await response.json();
+        
+        console.log(`[AuthContext] GitHub token check result (attempt ${attempt}):`, data);
+        
+        setHasGitHubToken(data.hasToken || false);
+        
+        if (data.hasToken) {
+          if (data.githubUser) {
+            console.log('[AuthContext] GitHub user found:', data.githubUser);
+            setGithubUser(data.githubUser);
+          }
+          return true;
+        }
+        
+        // If token not found and this isn't the last attempt, wait before retrying
+        if (attempt < 3) {
+          console.log('[AuthContext] Token not found, retrying in 1 second...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
       
-      return data.hasToken || false;
+      console.log('[AuthContext] No GitHub token found after retries');
+      setGithubUser(null);
+      return false;
     } catch (error) {
       console.error('[AuthContext] Error checking GitHub token:', error);
       setHasGitHubToken(false);
@@ -86,7 +97,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    // Also check GitHub token after page loads to handle OAuth callback redirects
+    const timer = setTimeout(() => {
+      if (user) {
+        checkGitHubToken(user.uid);
+      }
+    }, 2000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   const signInAnonymous = async () => {
