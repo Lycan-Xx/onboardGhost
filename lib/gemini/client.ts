@@ -33,7 +33,7 @@ export class GeminiClient {
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash', // Using flash model for better free tier limits
+      model: 'gemini-3-flash', // Using latest April 2026 Flash model
       generationConfig: {
         temperature: 0.3, // Lower for more consistent structure
         topP: 0.95,
@@ -48,8 +48,8 @@ export class GeminiClient {
    */
   async generateEmbedding(text: string): Promise<number[]> {
     try {
-      // Use the designated embedding model
-      const embeddingModel = this.genAI.getGenerativeModel({ model: "text-embedding-004" });
+      // Use the designated embedding model for April 2026
+      const embeddingModel = this.genAI.getGenerativeModel({ model: "gemini-embedding-2-preview" });
       const result = await embeddingModel.embedContent(text);
       return result.embedding.values;
     } catch (error) {
