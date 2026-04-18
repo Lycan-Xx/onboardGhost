@@ -15,11 +15,16 @@ interface GitHubTokenResponse {
 // Handle OAuth callback
 export async function GET(request: NextRequest) {
   try {
+    console.log('[GitHub Callback] OAuth callback received');
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
     const state = searchParams.get('state');
 
+    console.log('[GitHub Callback] Code:', code ? 'present' : 'missing');
+    console.log('[GitHub Callback] State:', state ? 'present' : 'missing');
+
     if (!code || !state) {
+      console.error('[GitHub Callback] Missing code or state');
       return NextResponse.redirect(
         `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=oauth_failed`
       );
@@ -67,17 +72,41 @@ export async function GET(request: NextRequest) {
       throw new Error('No access token received');
     }
 
+    // Fetch GitHub user profile
+    console.log('[GitHub Callback] Fetching user profile...');
+    const userResponse = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    });
+
+    if (!userResponse.ok) {
+      console.error('[GitHub Callback] Failed to fetch user profile');
+      throw new Error('Failed to fetch GitHub user profile');
+    }
+
+    const githubUser = await userResponse.json();
+    console.log('[GitHub Callback] User profile fetched:', githubUser.login);
+
     // Encrypt token (simple base64 for now - in production use proper encryption)
     const encryptedToken = Buffer.from(tokenData.access_token).toString('base64');
 
-    // Store encrypted token in Firebase
+    // Store encrypted token and user profile in Firebase
     const tokenRef = adminDb.collection('github_tokens').doc(stateData.userId);
+    console.log('[GitHub Callback] Storing token for user:', stateData.userId);
+    
     await tokenRef.set({
       encrypted_token: encryptedToken,
       scope: tokenData.scope,
       created_at: new Date(),
       expires_at: null, // GitHub tokens don't expire unless revoked
+      github_username: githubUser.login,
+      github_avatar: githubUser.avatar_url,
+      github_name: githubUser.name || githubUser.login,
     });
+
+    console.log('[GitHub Callback] Token stored successfully');
 
     // Redirect back to dashboard with success
     return NextResponse.redirect(

@@ -33,7 +33,7 @@ export class GeminiClient {
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({
-      model: 'gemini-2.5-pro',
+      model: 'gemini-2.5-flash', // Using flash model for better free tier limits
       generationConfig: {
         temperature: 0.3, // Lower for more consistent structure
         topP: 0.95,
