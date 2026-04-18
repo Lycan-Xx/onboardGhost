@@ -33,7 +33,7 @@ export class GeminiClient {
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({
-      model: 'gemini-3-flash', // Using latest April 2026 Flash model
+      model: 'gemini-flash-latest', // Stable Flash model for April 2026 Free Tier compatibility
       generationConfig: {
         temperature: 0.3, // Lower for more consistent structure
         topP: 0.95,
@@ -48,9 +48,16 @@ export class GeminiClient {
    */
   async generateEmbedding(text: string): Promise<number[]> {
     try {
-      // Use the designated embedding model for April 2026
+      // Use the designated embedding model for April 2026 with 768 dimensions
+      // This matches the Upstash index and uses MRL to scale correctly.
       const embeddingModel = this.genAI.getGenerativeModel({ model: "gemini-embedding-2-preview" });
-      const result = await embeddingModel.embedContent(text);
+      
+      const result = await embeddingModel.embedContent({
+        content: { parts: [{ text }] },
+        // Dimensions must be top-level in recent SDKs, not nested in config
+        outputDimensionality: 768 
+      });
+      
       return result.embedding.values;
     } catch (error) {
       console.error('[Gemini] Failed to generate embedding:', error);
@@ -764,6 +771,13 @@ Guidelines:
       return result;
     } catch (error) {
       console.error('Failed to chat:', error);
+      
+      // More descriptive error for logging
+      if (error && typeof error === 'object') {
+        const details = (error as any).details || error;
+        console.error('[Gemini Chat Error Details]:', JSON.stringify(details, null, 2));
+      }
+      
       throw new GeminiAPIError('Failed to generate chat response', error);
     }
   }
