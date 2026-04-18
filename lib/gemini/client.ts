@@ -44,6 +44,21 @@ export class GeminiClient {
   }
 
   /**
+   * Generate vector embedding for RAG
+   */
+  async generateEmbedding(text: string): Promise<number[]> {
+    try {
+      // Use the designated embedding model
+      const embeddingModel = this.genAI.getGenerativeModel({ model: "text-embedding-004" });
+      const result = await embeddingModel.embedContent(text);
+      return result.embedding.values;
+    } catch (error) {
+      console.error('[Gemini] Failed to generate embedding:', error);
+      throw new GeminiAPIError('Failed to generate embedding', error);
+    }
+  }
+
+  /**
    * Extract project purpose from README and package.json
    */
   async extractProjectPurpose(
@@ -664,6 +679,7 @@ Follow typical development workflow:
       techStack?: string[];
       repositoryMetadata?: any;
       analysisData?: any;
+      ragContext?: string;
     }
   ): Promise<string> {
     // Build project-specific system prompt
@@ -697,6 +713,12 @@ PROJECT CONTEXT:
           systemPrompt += `
 - Database: ${analysis.database[0].type}`;
         }
+      }
+
+      if (projectContext.ragContext) {
+        systemPrompt += `
+
+${projectContext.ragContext}`;
       }
     }
 

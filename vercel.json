@@ -17,6 +17,10 @@
     "GITHUB_TOKEN": "@github_token",
     "GITHUB_CLIENT_ID": "@github_client_id",
     "GITHUB_CLIENT_SECRET": "@github_client_secret",
-    "GITHUB_CALLBACK_URL": "@github_callback_url"
+    "GITHUB_CALLBACK_URL": "@github_callback_url",
+    "UPSTASH_VECTOR_REST_URL": "@upstash_vector_rest_url",
+    "UPSTASH_VECTOR_REST_TOKEN": "@upstash_vector_rest_token",
+    "INNGEST_EVENT_KEY": "@inngest_event_key",
+    "INNGEST_SIGNING_KEY": "@inngest_signing_key"
   }
 }

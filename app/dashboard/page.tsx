@@ -376,6 +376,27 @@ function DashboardContent() {
               {error}
             </div>
           )}
+
+          {/* One-Click Demos */}
+          <div className="flex flex-wrap justify-center items-center gap-3 mt-8">
+            <span className="text-gray-500 text-sm font-medium mr-2">Try a Demo:</span>
+            {[
+              { name: 'React', url: 'https://github.com/facebook/react' },
+              { name: 'Redux', url: 'https://github.com/reduxjs/redux' },
+              { name: 'Next.js', url: 'https://github.com/vercel/next.js' }
+            ].map(demo => (
+              <button
+                key={demo.name}
+                onClick={() => {
+                  setRepoUrl(demo.url);
+                }}
+                className="px-4 py-1.5 bg-[#1e293b] border border-gray-700 rounded-full text-sm text-gray-300 hover:border-pink-500 hover:text-pink-400 focus:ring-2 focus:ring-pink-500/50 transition-all disabled:opacity-50"
+                disabled={analyzing}
+              >
+                {demo.name}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Recent Analyses Section */}

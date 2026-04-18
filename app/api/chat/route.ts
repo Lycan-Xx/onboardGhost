@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Prepare project context for Gemini
-    const projectContext = {
+    const projectContext: any = {
       name: repoData.name || 'Unknown Project',
       purpose: repoData.project_purpose?.purpose || 'Not specified',
       techStack: repoData.tech_stack?.languages || [],
@@ -94,14 +94,43 @@ export async function POST(request: NextRequest) {
       }
     };
 
+    // --- RAG SEARCH PIPELINE ---
+    const geminiClient = createGeminiClient();
+    let ragContext = "";
+    try {
+      if (process.env.UPSTASH_VECTOR_REST_URL) {
+        const queryEmbedding = await geminiClient.generateEmbedding(message);
+        
+        if (queryEmbedding && queryEmbedding.length > 0) {
+          const { vectorIndex } = await import('@/lib/upstash/client');
+          const results = await vectorIndex.query({
+            vector: queryEmbedding,
+            topK: 5,
+            includeMetadata: true,
+            filter: `repoId = '${repoId}'` 
+          });
+          
+          const matchingDocs = results
+            .map((r: any) => r.metadata?.text)
+            .filter(Boolean);
+            
+          if (matchingDocs.length > 0) {
+            ragContext = "RELEVANT CODE SNIPPETS FROM THIS REPOSITORY:\n\n" + matchingDocs.join("\n\n---\n\n");
+            projectContext.ragContext = ragContext;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("RAG Vector Query Failed. Proceeding without specific file context.", e);
+    }
+    // ---------------------------
+
     // Call Gemini API with project context
     let assistantResponse = '';
     let fileReferences: string[] = [];
 
     try {
-      const geminiClient = createGeminiClient();
-      const conversationHistory: Array<{ role: string; content: string }> = []; // Could be loaded from chat history if needed
-
+      const conversationHistory: Array<{ role: string; content: string }> = [];
       assistantResponse = await geminiClient.chat(message, conversationHistory, projectContext);
 
       // For now, we don't extract file references from the response

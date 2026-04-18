@@ -124,9 +124,9 @@ export default function GhostMentorChat({ repoId, userId }: GhostMentorChatProps
           <div className="flex justify-center transition-all duration-300">
             <button
               onClick={() => setChatOpen(true)}
-              className="mb-4 flex items-center gap-2 px-5 py-2.5 bg-[#1e293b] border border-gray-700/80 rounded-lg text-white font-semibold hover:border-pink-500 hover:text-pink-400 transition-colors shadow-lg"
+              className="mb-4 flex items-center gap-2 px-5 py-2.5 bg-[#1e293b] border border-gray-700/80 rounded-lg text-white font-semibold hover:border-pink-500 hover:text-pink-400 transition-all shadow-lg group"
             >
-              <span className="material-symbols-outlined text-pink-500 text-xl">psychology</span>
+              <span className="material-symbols-outlined text-pink-500 text-xl animate-breathing group-hover:animate-none">psychology</span>
               Ask Ghost Mentor AI
             </button>
           </div>

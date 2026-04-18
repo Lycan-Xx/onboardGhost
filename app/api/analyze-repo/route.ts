@@ -1,33 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { createAnalyzer } from '@/lib/pipeline';
 import { validateGitHubUrl } from '@/lib/utils/url';
 import { handleAPIError } from '@/lib/utils/errors';
-import { transformRoadmapForUI } from '@/lib/utils/roadmap-transformer';
+import { inngest } from '@/lib/inngest/client';
 
-// Helper function to remove undefined values from objects
-function removeUndefined(obj: any): any {
-  if (obj === null || obj === undefined) {
-    return null;
-  }
-  
-  if (Array.isArray(obj)) {
-    return obj.map(item => removeUndefined(item)).filter(item => item !== undefined);
-  }
-  
-  if (typeof obj === 'object') {
-    const cleaned: any = {};
-    for (const key in obj) {
-      const value = removeUndefined(obj[key]);
-      if (value !== undefined) {
-        cleaned[key] = value;
-      }
-    }
-    return cleaned;
-  }
-  
-  return obj;
-}
+
 
 export async function POST(request: NextRequest) {
   const requestId = Math.random().toString(36).substring(7);
@@ -110,114 +87,26 @@ export async function POST(request: NextRequest) {
     const progressRef = adminDb.collection('analysis_progress').doc(repoId);
     await progressRef.set({
       current_step: 0,
-      step_name: 'Initializing',
+      step_name: 'Initializing background job...',
       step_status: 'in-progress',
       logs: [],
       updated_at: new Date(),
     });
 
-    // Create analyzer with progress callback
-    console.log(`[API ${requestId}] 🚀 Starting fresh analysis...\n`);
-    const analyzer = createAnalyzer(githubToken, async (progress) => {
-      // Store progress in Firestore for real-time updates
-      console.log(`[API ${requestId}] Progress Update: Step ${progress.step} - ${progress.stepName} (${progress.status})`);
-      
-      const logEntry: any = {
-        timestamp: new Date(),
-        step: progress.step,
-        message: progress.message,
-      };
-      
-      // Only add details if it's defined
-      if (progress.details !== undefined) {
-        logEntry.details = progress.details;
+    // Fire background job to Inngest
+    console.log(`[API ${requestId}] 🚀 Dispatching Inngest background job...\n`);
+    await inngest.send({
+      name: "repo/analyze",
+      data: {
+        repoUrl,
+        userId,
+        githubToken,
+        saveProgress,
+        repoId
       }
-      
-      // Get current document to append logs
-      const currentDoc = await progressRef.get();
-      const currentLogs = currentDoc.exists ? (currentDoc.data()?.logs || []) : [];
-      
-      await progressRef.set({
-        current_step: progress.step,
-        step_name: progress.stepName,
-        step_status: progress.status,
-        logs: [...currentLogs, logEntry],
-        updated_at: new Date(),
-      });
     });
 
-    // Run analysis
-    const analysis = await analyzer.analyze(repoUrl);
-
-    // Store results in Firestore
-    console.log(`[API ${requestId}] 💾 Storing results in Firestore...`);
-    const repoData = removeUndefined({
-      ...analysis.repository,
-      tech_stack: analysis.tech_stack,
-      database_requirements: analysis.database,
-      environment_variables: analysis.environment_variables,
-      security_issues: analysis.security_issues,
-      project_purpose: analysis.project_purpose,
-      gemini_file_uris: analysis.uploaded_files.gemini_uris,
-      analysis_duration: analysis.analysis_metadata.analysis_duration_seconds,
-      analyzed_at: new Date(),
-    });
-    await repoRef.set(repoData);
-
-    // Transform and store roadmap
-    const roadmapRef = adminDb.collection('roadmaps').doc(repoId);
-    console.log(`[API ${requestId}] Transforming roadmap for UI...`);
-    
-    // Log what Gemini returned
-    const rawRoadmap: any = analysis.roadmap;
-    console.log(`[API ${requestId}] Before transform - first task:`, JSON.stringify({
-      hasSteps: !!rawRoadmap.sections?.[0]?.tasks?.[0]?.steps,
-      stepsCount: rawRoadmap.sections?.[0]?.tasks?.[0]?.steps?.length || 0,
-    }));
-    
-    // Transform raw Gemini output to UI-ready format
-    const enrichedRoadmap: any = transformRoadmapForUI(analysis.roadmap as any);
-    
-    // Log after transform
-    console.log(`[API ${requestId}] After transform - first task:`, JSON.stringify({
-      hasSteps: !!enrichedRoadmap.sections?.[0]?.tasks?.[0]?.steps,
-      stepsCount: enrichedRoadmap.sections?.[0]?.tasks?.[0]?.steps?.length || 0,
-    }));
-    
-    console.log(`[API ${requestId}] Storing roadmap with ${enrichedRoadmap.sections?.length || 0} sections`);
-    console.log(`[API ${requestId}] Total tasks: ${enrichedRoadmap.total_tasks}`);
-    
-    const roadmapData = removeUndefined({
-      ...enrichedRoadmap,
-      generated_at: new Date(),
-    });
-    
-    // Log after removeUndefined
-    console.log(`[API ${requestId}] After removeUndefined - first task:`, JSON.stringify({
-      hasSteps: !!roadmapData.sections?.[0]?.tasks?.[0]?.steps,
-      stepsCount: roadmapData.sections?.[0]?.tasks?.[0]?.steps?.length || 0,
-    }));
-    
-    await roadmapRef.set(roadmapData);
-
-    // Initialize user progress (only if saveProgress is true and userId exists)
-    if (saveProgress && userId) {
-      console.log(`[API ${requestId}] 💾 Saving user progress...`);
-      const progressRef = adminDb.collection('user_progress').doc(userId).collection('repos').doc(repoId);
-      await progressRef.set({
-        user_id: userId,
-        repo_id: repoId,
-        completed_tasks: [],
-        overall_progress_percentage: 0,
-        ghost_solidness: 0,
-        started_at: new Date(),
-        last_activity: new Date(),
-      });
-    } else {
-      console.log(`[API ${requestId}] ℹ️  Skipping user progress (cache-only mode)`);
-    }
-
-    console.log(`\n[API ${requestId}] ✅ Analysis completed successfully!`);
+    console.log(`\n[API ${requestId}] ✅ Analysis job dispatched successfully!`);
     console.log(`${'#'.repeat(80)}\n`);
     
     return NextResponse.json({
