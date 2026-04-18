@@ -110,13 +110,18 @@ export async function POST(request: NextRequest) {
             filter: `repoId = '${repoId}'` 
           });
           
+          console.log(`[RAG Search] Found ${results.length} matches for repoId: ${repoId}`);
+          
           const matchingDocs = results
             .map((r: any) => r.metadata?.text)
             .filter(Boolean);
             
           if (matchingDocs.length > 0) {
-            ragContext = "RELEVANT CODE SNIPPETS FROM THIS REPOSITORY:\n\n" + matchingDocs.join("\n\n---\n\n");
+            ragContext = "THE FOLLOWING SNIPPETS ARE FROM THE PROJECT'S SOURCE CODE. USE THEM TO ANSWER THE USER'S QUESTION ACCURATELY:\n\n" + 
+                         matchingDocs.map((doc: string, i: number) => `[Source Clip #${i+1}]\n${doc}`).join("\n\n---\n\n");
             projectContext.ragContext = ragContext;
+          } else {
+            console.log(`[RAG Search] No matching documentation blocks found in metadata.`);
           }
         }
       }

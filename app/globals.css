@@ -102,3 +102,75 @@ body {
 .animate-breathing {
   animation: breathing 3s ease-in-out infinite;
 }
+
+/* Chat Markdown & Code Styles */
+.chat-prose {
+  color: #e2e8f0;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.chat-prose p {
+  margin-bottom: 0.75rem;
+}
+
+.chat-prose p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-prose code:not(pre code) {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.85em;
+  color: #f472b6; /* pink-400 */
+}
+
+.chat-prose pre {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(244, 114, 182, 0.2);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+  backdrop-filter: blur(4px);
+}
+
+.chat-prose pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.9em;
+  color: #f8fafc;
+  display: block;
+}
+
+.chat-prose ul, .chat-prose ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.chat-prose li {
+  margin-bottom: 0.4rem;
+}
+
+.chat-prose h1, .chat-prose h2, .chat-prose h3 {
+  color: #f472b6;
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.chat-prose a {
+  color: #f472b6;
+  text-decoration: underline;
+}
+
+.chat-prose blockquote {
+  border-left: 4px solid #f472b6;
+  padding-left: 1rem;
+  font-style: italic;
+  color: #94a3b8;
+  margin: 1rem 0;
+}

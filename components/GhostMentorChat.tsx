@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessage {
   id: string;
@@ -183,13 +185,17 @@ export default function GhostMentorChat({ repoId, userId }: GhostMentorChatProps
                   )}
                   
                   <div
-                    className={`p-3 rounded-lg max-w-md ${
+                    className={`p-3 rounded-lg max-w-full overflow-hidden ${
                       message.role === 'user'
                         ? 'bg-pink-500/90 text-[#0a0a0f]'
                         : 'bg-gray-700/50 text-white'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    <div className={message.role === 'assistant' ? 'chat-prose' : ''}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
                     
                     {message.file_references && message.file_references.length > 0 && (
                       <div className="mt-2 pt-2 border-t border-gray-600">

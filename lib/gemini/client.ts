@@ -33,7 +33,7 @@ export class GeminiClient {
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash', // Using flash model for better free tier limits
+      model: 'gemini-1.5-flash', // Using flash model for better free tier limits
       generationConfig: {
         temperature: 0.3, // Lower for more consistent structure
         topP: 0.95,
@@ -718,6 +718,10 @@ PROJECT CONTEXT:
       if (projectContext.ragContext) {
         systemPrompt += `
 
+=== DIRECT REPOSITORY ACCESS ===
+You have been provided with actual source code snippets and file contents retrieved from the project repository. 
+TREAT THE FOLLOWING CONTENT AS YOUR ABSOLUTE SOURCE OF TRUTH for project-specific questions:
+
 ${projectContext.ragContext}`;
       }
     }
@@ -725,13 +729,14 @@ ${projectContext.ragContext}`;
     systemPrompt += `
 
 Guidelines:
-- Focus on helping with THIS SPECIFIC PROJECT (not generic advice)
-- Reference actual files, dependencies, and configurations from THIS project
-- Provide code snippets when relevant (max 15 lines)
-- Explain WHY things work, not just HOW (educational approach)
-- Keep answers under 200 words unless explaining complex setup
-- Offer troubleshooting tips specific to this project's tech stack
-- If you don't have specific information about this project, acknowledge that and provide general guidance`;
+- Focus on helping with THIS SPECIFIC PROJECT (not generic advice).
+- Reference actual files, dependencies, and configurations from the snippets provided.
+- Provide code snippets when relevant (max 15 lines).
+- Explain WHY things work, not just HOW (educational approach).
+- Keep answers under 200 words unless explaining complex setup.
+- Offer troubleshooting tips specific to this project's tech stack.
+- NEVER claim you don't have access to the project files if snippets are provided in the "DIRECT REPOSITORY ACCESS" section.
+- If snippets are present, prioritize them over general programming knowledge.`;
 
     try {
       const history = [
