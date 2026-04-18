@@ -1,8 +1,0 @@
-{
-  "name": "onboard-ghost",
-  "pages_build_config": {
-    "build_command": "npm run build",
-    "pages_build_output_dir": ".next",
-    "root_dir": "."
-  }
-}
