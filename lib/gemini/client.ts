@@ -57,9 +57,8 @@ export class GeminiClient {
           role: "user",
           parts: [{ text }]
         },
-        // Dimensions must be top-level in recent SDKs, not nested in config
-        outputDimensionality: 768 
-      });
+        outputDimensionality: 768
+      } as any);
       
       return result.embedding.values;
     } catch (error) {
