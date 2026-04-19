@@ -53,7 +53,10 @@ export class GeminiClient {
       const embeddingModel = this.genAI.getGenerativeModel({ model: "gemini-embedding-2-preview" });
       
       const result = await embeddingModel.embedContent({
-        content: { parts: [{ text }] },
+        content: {
+          role: "user",
+          parts: [{ text }]
+        },
         // Dimensions must be top-level in recent SDKs, not nested in config
         outputDimensionality: 768 
       });
