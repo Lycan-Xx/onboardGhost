@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, Github } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function LandingPage() {
@@ -128,8 +128,8 @@ export default function LandingPage() {
             <div className="flex items-center gap-5">
               <a href="#" className="hover:text-fg transition-colors">Privacy</a>
               <a href="#" className="hover:text-fg transition-colors">Terms</a>
-              <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-fg transition-colors inline-flex items-center gap-1.5">
-                <Github size={13} /> GitHub
+              <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-fg transition-colors">
+                GitHub
               </a>
             </div>
           </div>
