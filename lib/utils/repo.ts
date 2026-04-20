@@ -25,3 +25,15 @@ export function repoIdToOwnerAvatar(repoId: string | undefined | null): string |
   if (!owner) return null;
   return `https://github.com/${owner}.png?size=80`;
 }
+
+/** Returns "owner/repo" suitable for linking to https://github.com/owner/repo */
+export function repoIdToOwnerRepo(repoId: string | undefined | null): string | null {
+  if (!repoId) return null;
+  const dashIdx = repoId.indexOf("-");
+  if (dashIdx > 0) return `${repoId.slice(0, dashIdx)}/${repoId.slice(dashIdx + 1)}`;
+  if (repoId.includes("_")) {
+    const parts = repoId.split("_");
+    return parts.slice(1).join("/") || null;
+  }
+  return null;
+}
