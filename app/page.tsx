@@ -1,158 +1,137 @@
+'use client';
+
 import Link from "next/link";
+import { useState } from "react";
+import { ArrowRight, Github } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function LandingPage() {
-  return (
-    <div className="relative min-h-screen">
-      {/* Background Effects */}
-      <div className="absolute inset-0 bg-gradient-radial from-primary/10 via-transparent to-transparent opacity-30"></div>
-      <div className="absolute inset-0 bg-gradient-radial-br from-primary/5 via-transparent to-transparent opacity-30"></div>
-      <div className="absolute inset-0 grid-pattern"></div>
+  const router = useRouter();
+  const [repoUrl, setRepoUrl] = useState("");
 
-      <div className="relative min-h-screen flex flex-col items-center px-4 sm:px-6 lg:px-8">
+  const handleAnalyze = () => {
+    // Route to dashboard with prefilled repo (dashboard handles auth gate)
+    if (repoUrl.trim()) {
+      router.push(`/dashboard?prefill=${encodeURIComponent(repoUrl.trim())}`);
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
+  return (
+    <div className="relative min-h-screen bg-bg text-fg overflow-hidden">
+      <div className="absolute inset-0 grid-canvas opacity-60" />
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_50%_100%,rgba(242,84,91,0.10),transparent_60%)]" />
+
+      <div className="relative z-10 flex min-h-screen flex-col">
         {/* Header */}
-        <header className="w-full max-w-7xl mx-auto py-6">
-          <div className="flex items-center">
-            <span className="material-icons-outlined text-primary text-3xl opacity-75">
-              ghost
-            </span>
+        <header className="w-full">
+          <div className="mx-auto max-w-6xl px-5 sm:px-8 py-5 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-md bg-accent/20 border border-accent/30 grid place-items-center">
+                <span className="text-accent text-sm font-semibold">◈</span>
+              </div>
+              <span className="font-semibold tracking-tight">OnboardGhost</span>
+            </Link>
+            <nav className="hidden md:flex items-center gap-7 text-sm text-muted">
+              <a href="#how" className="hover:text-fg transition-colors">How it works</a>
+              <a href="#why" className="hover:text-fg transition-colors">Why</a>
+              <Link href="/dashboard" className="hover:text-fg transition-colors">Sign in</Link>
+            </nav>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 rounded-full bg-fg text-bg px-4 py-2 text-sm font-medium hover:bg-white/90 transition-colors"
+            >
+              Get started <ArrowRight size={14} />
+            </Link>
           </div>
         </header>
 
-        {/* Hero Section */}
-        <main className="flex-grow flex flex-col items-center justify-center text-center py-20 w-full max-w-4xl">
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white">
-            ONBOARD GHOST
+        {/* Hero */}
+        <main className="flex-1 flex flex-col items-center text-center px-5 sm:px-8 pt-16 sm:pt-24 pb-32">
+          <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted mb-8">
+            <span className="h-1 w-1 rounded-full bg-accent" /> AI codebase onboarding
+          </span>
+
+          <h1 className="font-serif text-[clamp(2.4rem,6vw,4.5rem)] leading-[1.05] tracking-tight max-w-4xl">
+            Onboard any codebase
+            <br />
+            <span className="italic text-accent">in days, not weeks.</span>
           </h1>
-          <p className="mt-4 text-lg md:text-xl font-medium text-primary">
-            Stop Haunting New Developers
+
+          <p className="mt-6 max-w-xl text-base sm:text-lg text-muted leading-relaxed">
+            Paste a GitHub repository. Get a personalized roadmap, an AI mentor,
+            and a clear path from <em>zero</em> to first commit.
           </p>
 
-          <div className="my-12">
-            <span className="material-icons-outlined text-9xl text-white opacity-80 animate-float">
-              ghost
-            </span>
-          </div>
-
-          <h2 className="text-2xl md:text-3xl font-semibold text-white">
-            Your AI guide through haunted codebases
-          </h2>
-          <p className="mt-4 max-w-2xl text-lg text-text-muted-dark">
-            Turn weeks of confusion into days of clarity.
-          </p>
-
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/dashboard">
-              <button className="w-full sm:w-auto bg-primary text-white font-semibold py-3 px-8 rounded-lg shadow-lg hover:shadow-neon transition-all duration-300">
-                Get Started Free →
+          {/* Hero input */}
+          <div className="mt-10 w-full max-w-xl">
+            <div className="flex items-center gap-2 rounded-full bg-surface border border-border-strong p-1.5 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6)]">
+              <input
+                type="text"
+                value={repoUrl}
+                onChange={(e) => setRepoUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
+                placeholder="Paste a GitHub repo URL…"
+                className="flex-1 bg-transparent px-4 py-2.5 text-sm text-fg placeholder:text-subtle outline-none"
+              />
+              <button
+                onClick={handleAnalyze}
+                className="inline-flex items-center gap-2 rounded-full bg-accent text-white px-5 py-2.5 text-sm font-medium hover:bg-accent-hover transition-colors whitespace-nowrap"
+              >
+                Analyze <ArrowRight size={14} />
               </button>
-            </Link>
-            <button className="w-full sm:w-auto bg-surface-dark/50 text-text-dark font-semibold py-3 px-8 rounded-lg hover:bg-surface-dark transition-all duration-300 border border-border-dark">
-              Watch Demo (2 min)
-            </button>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-muted">
+              <span>Try:</span>
+              {[
+                { label: "facebook/react", url: "https://github.com/facebook/react" },
+                { label: "vercel/next.js", url: "https://github.com/vercel/next.js" },
+                { label: "reduxjs/redux", url: "https://github.com/reduxjs/redux" },
+              ].map((d) => (
+                <button
+                  key={d.label}
+                  onClick={() => setRepoUrl(d.url)}
+                  className="rounded-full border border-border px-3 py-1 hover:border-accent/60 hover:text-fg transition-colors"
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
           </div>
         </main>
 
-        {/* How It Works Section */}
-        <section className="py-24 w-full max-w-7xl mx-auto" id="how-it-works">
-          <div className="text-center mb-16">
-            <h2 className="text-base font-semibold tracking-wider text-primary uppercase">
-              How It Works
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
-            <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center h-16 w-16 rounded-xl bg-primary/10 mb-6 border border-primary/20">
-                <span className="material-icons-outlined text-3xl text-primary">link</span>
-              </div>
-              <h3 className="text-xl font-semibold text-white">Connect Repo</h3>
-              <p className="mt-2 text-text-muted-dark">Paste GitHub URL</p>
-            </div>
-
-            <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center h-16 w-16 rounded-xl bg-primary/10 mb-6 border border-primary/20">
-                <span className="material-icons-outlined text-3xl text-primary">memory</span>
-              </div>
-              <h3 className="text-xl font-semibold text-white">AI Analyzes Code</h3>
-              <p className="mt-2 text-text-muted-dark">Generates roadmap</p>
-            </div>
-
-            <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center h-16 w-16 rounded-xl bg-primary/10 mb-6 border border-primary/20">
-                <span className="material-icons-outlined text-3xl text-primary">
-                  question_answer
-                </span>
-              </div>
-              <h3 className="text-xl font-semibold text-white">Ask Questions</h3>
-              <p className="mt-2 text-text-muted-dark">Chat with mentor</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Testimonials Section */}
-        <section className="py-24 w-full max-w-7xl mx-auto" id="testimonials">
-          <div className="text-center mb-16">
-            <h2 className="text-base font-semibold tracking-wider text-primary uppercase">
-              Trusted By Developers
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="bg-surface-dark/50 p-8 rounded-xl backdrop-blur-sm border border-border-dark hover:border-primary/30 transition-all duration-300">
-              <p className="text-text-muted-dark">
-                "Onboard Ghost is a game-changer. I got up to speed on a massive legacy codebase
-                in just two days. Unbelievable!"
-              </p>
-              <div className="mt-6 font-semibold text-white">- Alex D, Senior Engineer</div>
-            </div>
-
-            <div className="bg-surface-dark/50 p-8 rounded-xl backdrop-blur-sm border border-border-dark hover:border-primary/30 transition-all duration-300">
-              <p className="text-text-muted-dark">
-                "As a new hire, the cognitive load was immense. This tool provided a clear path and
-                answered my dumbest questions without judgment."
-              </p>
-              <div className="mt-6 font-semibold text-white">- Sarah J, Junior Developer</div>
-            </div>
-
-            <div className="bg-surface-dark/50 p-8 rounded-xl backdrop-blur-sm border border-border-dark hover:border-primary/30 transition-all duration-300">
-              <p className="text-text-muted-dark">
-                "We've cut our new developer onboarding time by 60%. It pays for itself in the
-                first week. Highly recommend."
-              </p>
-              <div className="mt-6 font-semibold text-white">- Michael B, Engineering Manager</div>
+        {/* How it works */}
+        <section id="how" className="border-t border-border bg-surface/30">
+          <div className="mx-auto max-w-5xl px-5 sm:px-8 py-20">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted mb-10">How it works</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+              {[
+                { n: "01", title: "Connect a repo", body: "Paste a public URL or sign in with GitHub for private access." },
+                { n: "02", title: "AI maps the codebase", body: "Architecture, dependencies, and risks in ~30 seconds." },
+                { n: "03", title: "Follow the roadmap", body: "Step-by-step tasks with an AI mentor that knows your code." },
+              ].map((s) => (
+                <div key={s.n} className="flex flex-col gap-3">
+                  <span className="font-serif text-3xl text-accent/80">{s.n}</span>
+                  <h3 className="font-medium text-lg">{s.title}</h3>
+                  <p className="text-sm text-muted leading-relaxed">{s.body}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         {/* Footer */}
-        <footer className="w-full max-w-7xl mx-auto py-12 mt-16 border-t border-border-dark">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="material-icons-outlined text-primary text-xl opacity-75">
-                ghost
-              </span>
-              <span className="text-text-muted-dark">Onboard Ghost</span>
+        <footer className="border-t border-border">
+          <div className="mx-auto max-w-6xl px-5 sm:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted">
+            <span>© {new Date().getFullYear()} OnboardGhost</span>
+            <div className="flex items-center gap-5">
+              <a href="#" className="hover:text-fg transition-colors">Privacy</a>
+              <a href="#" className="hover:text-fg transition-colors">Terms</a>
+              <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-fg transition-colors inline-flex items-center gap-1.5">
+                <Github size={13} /> GitHub
+              </a>
             </div>
-            <nav className="flex gap-6">
-              <a
-                className="text-text-muted-dark hover:text-primary transition-colors"
-                href="#"
-              >
-                Pricing
-              </a>
-              <a
-                className="text-text-muted-dark hover:text-primary transition-colors"
-                href="#"
-              >
-                About
-              </a>
-              <a
-                className="text-text-muted-dark hover:text-primary transition-colors"
-                href="#"
-              >
-                Contact
-              </a>
-            </nav>
           </div>
         </footer>
       </div>
