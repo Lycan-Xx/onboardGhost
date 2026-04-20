@@ -222,6 +222,7 @@ export const analyzeRepositoryFunction = inngest.createFunction(
 
       return {
         repo_id: metadata.id,
+        repository_name: metadata.name,
         sections: transformedSections,
         total_tasks: roadmapData.sections.reduce((sum: number, section: any) => sum + section.tasks.length, 0),
       };

@@ -212,7 +212,7 @@ function DashboardContent() {
     );
   }
 
-  const displayName = githubUser?.name || githubUser?.username || (user?.isAnonymous ? 'Guest' : 'You');
+  const displayName = githubUser?.username || githubUser?.name || (user?.isAnonymous ? 'Guest' : 'You');
 
   return (
     <div className="relative min-h-screen bg-bg text-fg">
@@ -241,7 +241,7 @@ function DashboardContent() {
                   className="w-7 h-7 rounded-full object-cover"
                 />
                 <span className="text-sm text-fg max-w-[120px] truncate">
-                  {githubUser.name || githubUser.username}
+                  {githubUser.username || githubUser.name}
                 </span>
                 <ChevronRight size={14} className="text-muted group-hover:text-fg transition-colors" />
               </Link>

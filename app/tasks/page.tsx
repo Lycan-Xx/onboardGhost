@@ -70,7 +70,7 @@ function TasksContent() {
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const searchParams = useSearchParams();
   const repoId = searchParams.get('repoId');
-  const { user } = useAuth();
+  const { user, hasGitHubToken, githubUser, initiateGitHubAuth, githubLoading } = useAuth();
   const ownerAvatar = repoIdToOwnerAvatar(repoId);
   const ownerRepo = repoIdToOwnerRepo(repoId);
 
@@ -222,9 +222,26 @@ function TasksContent() {
                 )}
               </div>
             </div>
-            <Link href="/profile" className="inline-flex items-center gap-2 text-sm text-muted hover:text-fg transition-colors shrink-0">
-              <UserIcon size={14} /> <span className="hidden sm:inline">Profile</span>
-            </Link>
+            {hasGitHubToken && githubUser ? (
+              <Link
+                href="/profile"
+                className="flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full bg-surface border border-border hover:border-border-strong transition-colors group shrink-0"
+              >
+                <img
+                  src={githubUser.avatar}
+                  alt={githubUser.username}
+                  className="w-7 h-7 rounded-full object-cover"
+                />
+                <span className="text-sm text-fg max-w-[120px] truncate hidden sm:inline">
+                  {githubUser.username || githubUser.name}
+                </span>
+                <ChevronRight size={14} className="text-muted group-hover:text-fg transition-colors" />
+              </Link>
+            ) : (
+              <Link href="/profile" className="inline-flex items-center gap-2 text-sm text-muted hover:text-fg transition-colors shrink-0">
+                <UserIcon size={14} /> <span className="hidden sm:inline">Profile</span>
+              </Link>
+            )}
           </div>
 
           {/* Progress meter */}
