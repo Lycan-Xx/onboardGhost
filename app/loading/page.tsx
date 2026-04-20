@@ -151,7 +151,7 @@ function LoadingContent() {
                 />
               ) : (
                 <div className="w-14 h-14 rounded-xl border border-border bg-surface-2 grid place-items-center shrink-0">
-                  <Github size={20} className="text-muted" />
+                  <GhIcon size={20} className="text-muted" />
                 </div>
               )}
               <div className="min-w-0 flex-1">
@@ -164,7 +164,7 @@ function LoadingContent() {
                     rel="noreferrer"
                     className="text-xs text-muted hover:text-accent inline-flex items-center gap-1 mt-0.5"
                   >
-                    <Github size={11} /> {ownerRepo}
+                    <GhIcon size={11} /> {ownerRepo}
                   </a>
                 )}
               </div>
