@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { repoIdToDisplayName, repoIdToOwnerAvatar } from '@/lib/utils/repo';
-import { Check, Loader2, Circle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { repoIdToDisplayName, repoIdToOwnerAvatar, repoIdToOwnerRepo } from '@/lib/utils/repo';
+import { Check, Loader2, AlertCircle, ArrowLeft, Github, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 interface AnalysisProgress {
@@ -16,45 +16,57 @@ interface AnalysisProgress {
   updated_at: any;
 }
 
-interface Step { name: string; status: 'completed' | 'in-progress' | 'pending'; }
+interface Stage {
+  key: string;
+  label: string;
+  hint: string;
+  // backend step numbers that map to this stage
+  steps: number[];
+}
 
-const STEP_NAMES = [
-  'Cloning repository',
-  'Parsing file structure',
-  'Analyzing dependencies',
-  'Scanning security',
-  'Generating roadmap',
+const STAGES: Stage[] = [
+  { key: 'fetch',   label: 'Reading repository',     hint: 'Cloning metadata, branches, and the file tree',                steps: [1] },
+  { key: 'filter',  label: 'Mapping the codebase',   hint: 'Filtering noise — focusing on what matters for onboarding',    steps: [2] },
+  { key: 'static',  label: 'Detecting tech stack',   hint: 'Parsing manifests, lockfiles, and config to learn the stack',  steps: [3] },
+  { key: 'purpose', label: 'Understanding intent',   hint: 'Reading the README and inferring what this project really does', steps: [4] },
+  { key: 'security',label: 'Checking dependencies',  hint: 'Looking at deps and surface area for setup gotchas',           steps: [5, 6] },
+  { key: 'roadmap', label: 'Designing your roadmap', hint: 'Asking AI to plan an intelligent onboarding path just for you', steps: [7] },
+  { key: 'finalize',label: 'Polishing the checklist',hint: 'Ordering tasks by dependency and writing your first steps',    steps: [8] },
 ];
+
+function stageIndexForStep(step: number): number {
+  for (let i = 0; i < STAGES.length; i++) {
+    if (STAGES[i].steps.includes(step)) return i;
+  }
+  return 0;
+}
 
 function LoadingContent() {
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [steps, setSteps] = useState<Step[]>(STEP_NAMES.map((n) => ({ name: n, status: 'pending' })));
+  const [elapsed, setElapsed] = useState(0);
   const router = useRouter();
   const searchParams = useSearchParams();
   const repoId = searchParams.get('repoId');
   const repoName = repoIdToDisplayName(repoId);
   const ownerAvatar = repoIdToOwnerAvatar(repoId);
+  const ownerRepo = repoIdToOwnerRepo(repoId);
 
+  // Elapsed timer
   useEffect(() => {
-    if (!progress) return;
-    const map: { [key: number]: number } = { 1: 0, 2: 1, 3: 2, 4: 2, 5: 3, 6: 4, 7: 4, 8: 4 };
-    const idx = map[progress.current_step] || 0;
-    setSteps((prev) =>
-      prev.map((s, i) => {
-        if (i < idx) return { ...s, status: 'completed' };
-        if (i === idx) return { ...s, status: progress.step_status === 'completed' ? 'completed' : 'in-progress' };
-        return { ...s, status: 'pending' };
-      })
-    );
-  }, [progress]);
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
 
+  const currentStageIdx = progress ? stageIndexForStep(progress.current_step) : 0;
+  const isFinalizing = progress?.current_step === 8 && progress.step_status === 'completed';
+
+  // Subscribe to progress
   useEffect(() => {
     if (!repoId) {
       router.push('/dashboard');
       return;
     }
-
     const checkExisting = async () => {
       try {
         const r = await fetch(`/api/get-roadmap?repoId=${repoId}&userId=demo-user`);
@@ -68,7 +80,6 @@ function LoadingContent() {
       } catch {}
       return false;
     };
-
     checkExisting().then((exists) => {
       if (exists) return;
       const ref = doc(db, 'analysis_progress', repoId);
@@ -79,7 +90,7 @@ function LoadingContent() {
             const data = snap.data() as AnalysisProgress;
             setProgress(data);
             if (data.step_status === 'completed' && data.current_step === 8) {
-              setTimeout(() => router.push(`/tasks?repoId=${repoId}`), 1500);
+              setTimeout(() => router.push(`/tasks?repoId=${repoId}`), 1200);
             } else if (data.step_status === 'failed') {
               setError('Analysis failed. Please try again.');
             }
@@ -93,7 +104,16 @@ function LoadingContent() {
     });
   }, [repoId, router]);
 
-  const pct = progress ? Math.round((progress.current_step / 8) * 100) : 0;
+  const pct = useMemo(() => {
+    if (!progress) return 4;
+    return Math.max(4, Math.round((progress.current_step / 8) * 100));
+  }, [progress]);
+
+  const elapsedLabel = useMemo(() => {
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  }, [elapsed]);
 
   return (
     <div className="relative min-h-screen bg-bg text-fg flex flex-col">
@@ -101,34 +121,56 @@ function LoadingContent() {
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_50%_100%,rgba(242,84,91,0.08),transparent_60%)]" />
 
       <header className="relative z-10 border-b border-border">
-        <div className="mx-auto max-w-3xl px-5 sm:px-8 h-14 flex items-center justify-between">
+        <div className="mx-auto max-w-4xl px-5 sm:px-8 h-14 flex items-center justify-between">
           <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm text-muted hover:text-fg transition-colors">
             <ArrowLeft size={14} /> Dashboard
           </Link>
-          <span className="text-xs text-subtle">Analyzing</span>
+          <span className="inline-flex items-center gap-1.5 text-xs text-subtle">
+            <Sparkles size={12} className="text-accent" /> AI is analyzing
+          </span>
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 flex items-center justify-center px-5 py-12">
-        <div className="w-full max-w-lg">
-          {/* Repo header */}
-          <div className="flex items-center gap-3 mb-8">
-            {ownerAvatar && (
-              <img
-                src={ownerAvatar}
-                alt=""
-                className="w-12 h-12 rounded-lg border border-border"
-                onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-              />
-            )}
-            <div className="min-w-0">
-              <p className="text-xs uppercase tracking-wider text-subtle">Analyzing</p>
-              <h1 className="font-serif text-2xl truncate">{repoName}</h1>
+      <main className="relative z-10 flex-1 px-5 py-10 sm:py-14">
+        <div className="mx-auto max-w-2xl">
+          {/* Repo header card */}
+          <div className="rounded-2xl border border-border bg-surface/40 backdrop-blur-sm p-5 sm:p-6 mb-8">
+            <div className="flex items-center gap-4">
+              {ownerAvatar ? (
+                <img
+                  src={ownerAvatar}
+                  alt=""
+                  className="w-14 h-14 rounded-xl border border-border shrink-0"
+                  onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-xl border border-border bg-surface-2 grid place-items-center shrink-0">
+                  <Github size={20} className="text-muted" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-subtle mb-1">Onboarding</p>
+                <h1 className="font-serif text-xl sm:text-2xl truncate leading-tight">{repoName}</h1>
+                {ownerRepo && (
+                  <a
+                    href={`https://github.com/${ownerRepo}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-muted hover:text-accent inline-flex items-center gap-1 mt-0.5"
+                  >
+                    <Github size={11} /> {ownerRepo}
+                  </a>
+                )}
+              </div>
+              <div className="hidden sm:flex flex-col items-end shrink-0">
+                <span className="text-xs text-subtle">Elapsed</span>
+                <span className="font-mono text-sm tabular-nums text-fg">{elapsedLabel}</span>
+              </div>
             </div>
           </div>
 
           {error ? (
-            <div className="rounded-xl border border-accent/30 bg-accent-soft p-6 text-center">
+            <div className="rounded-2xl border border-accent/30 bg-accent-soft p-6 text-center">
               <AlertCircle size={20} className="mx-auto text-accent mb-3" />
               <p className="text-sm text-fg mb-1 font-medium">Analysis failed</p>
               <p className="text-sm text-muted mb-5">{error}</p>
@@ -141,43 +183,61 @@ function LoadingContent() {
             </div>
           ) : (
             <>
-              {/* Progress bar */}
+              {/* Progress strip */}
               <div className="mb-8">
-                <div className="flex items-center justify-between text-xs text-muted mb-2">
-                  <span>{progress?.step_name || 'Starting…'}</span>
-                  <span>{pct}%</span>
+                <div className="flex items-end justify-between mb-2">
+                  <div className="min-w-0 pr-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-subtle mb-0.5">Now</p>
+                    <p className="text-sm text-fg truncate">
+                      {isFinalizing ? 'Opening your checklist…' : (STAGES[currentStageIdx]?.label || 'Starting…')}
+                    </p>
+                  </div>
+                  <span className="font-mono text-xs text-muted tabular-nums shrink-0">{pct}%</span>
                 </div>
                 <div className="relative h-1 rounded-full bg-surface-2 overflow-hidden">
-                  <div className="absolute inset-y-0 left-0 bg-accent transition-all duration-500" style={{ width: `${pct}%` }} />
+                  <div className="absolute inset-y-0 left-0 bg-accent transition-all duration-700 ease-out" style={{ width: `${pct}%` }} />
                   {pct < 100 && <div className="absolute inset-0 shimmer opacity-60" />}
                 </div>
               </div>
 
-              {/* Steps timeline */}
+              {/* Stages timeline */}
               <ol className="relative space-y-1">
-                <div className="absolute left-[11px] top-3 bottom-3 w-px bg-border" />
-                {steps.map((step, i) => (
-                  <li key={i} className="relative flex items-center gap-4 py-2.5 pl-0">
-                    <div className={`relative z-10 w-6 h-6 rounded-full grid place-items-center shrink-0 ${
-                      step.status === 'completed' ? 'bg-accent text-white' :
-                      step.status === 'in-progress' ? 'bg-accent-soft border border-accent' :
-                      'bg-surface border border-border'
-                    }`}>
-                      {step.status === 'completed' ? <Check size={12} strokeWidth={3} /> :
-                       step.status === 'in-progress' ? <Loader2 size={11} className="animate-spin text-accent" /> :
-                       <Circle size={6} className="text-subtle fill-current" />}
-                    </div>
-                    <span className={`text-sm ${
-                      step.status === 'in-progress' ? 'text-fg font-medium' :
-                      step.status === 'completed' ? 'text-muted' : 'text-subtle'
-                    }`}>{step.name}</span>
-                  </li>
-                ))}
+                <div className="absolute left-[15px] top-4 bottom-4 w-px bg-border" />
+                {STAGES.map((stage, i) => {
+                  const status: 'completed' | 'in-progress' | 'pending' =
+                    i < currentStageIdx ? 'completed' :
+                    i === currentStageIdx ? (isFinalizing ? 'completed' : 'in-progress') :
+                    'pending';
+                  return (
+                    <li key={stage.key} className="relative flex items-start gap-4 py-2.5">
+                      <div className={`relative z-10 w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 transition-colors ${
+                        status === 'completed' ? 'bg-accent text-white' :
+                        status === 'in-progress' ? 'bg-accent-soft border border-accent' :
+                        'bg-surface border border-border'
+                      }`}>
+                        {status === 'completed' ? <Check size={14} strokeWidth={3} /> :
+                         status === 'in-progress' ? <Loader2 size={13} className="animate-spin text-accent" /> :
+                         <span className="text-[11px] font-mono text-subtle tabular-nums">{i + 1}</span>}
+                      </div>
+                      <div className="min-w-0 pt-0.5">
+                        <p className={`text-sm leading-tight ${
+                          status === 'in-progress' ? 'text-fg font-medium' :
+                          status === 'completed' ? 'text-muted' : 'text-subtle'
+                        }`}>{stage.label}</p>
+                        {status === 'in-progress' && (
+                          <p className="text-xs text-muted mt-1 leading-snug">{stage.hint}</p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ol>
 
-              <p className="mt-10 text-xs text-subtle text-center">
-                This usually takes about 30 seconds — feel free to keep this tab open.
-              </p>
+              <div className="mt-10 flex items-center justify-between gap-3 text-xs text-subtle border-t border-border pt-5">
+                <span className="sm:hidden font-mono tabular-nums">⏱ {elapsedLabel}</span>
+                <span className="hidden sm:inline">Typically ~30s. Larger repos can take a minute.</span>
+                <span>Safe to keep this tab open ✦</span>
+              </div>
             </>
           )}
         </div>
