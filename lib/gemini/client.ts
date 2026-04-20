@@ -389,36 +389,45 @@ CRITICAL JSON RULES:
    * Build section-specific guidance
    */
   private buildSectionGuidance(analysisData: AnalysisData): string {
-    const sections: string[] = [
-      'Understanding the Project',
-      'Getting the Code',
-      'Installing Dependencies',
+    const hasEnv = analysisData.env_vars && analysisData.env_vars.length > 0;
+    const hasDb = analysisData.database && analysisData.database.length > 0;
+    const framework = analysisData.tech_stack?.framework || '';
+    const hasDocker = framework.toLowerCase().includes('docker') ||
+      analysisData.tech_stack?.dependencies?.development?.some?.((d) => d.toLowerCase().includes('docker'));
+
+    // Build a richer, intelligently-ordered section list
+    const sections: { title: string; tasks: number; why: string }[] = [
+      { title: 'Project Orientation', tasks: 2, why: 'Understand what this project does and how the code is organized' },
+      { title: 'Prerequisites & Tooling', tasks: 2, why: 'Verify required runtimes and CLI tools are installed' },
+      { title: 'Get the Code', tasks: 1, why: 'Clone the repository and explore the directory layout' },
+      { title: 'Install Dependencies', tasks: 2, why: 'Install packages and confirm the install succeeded' },
     ];
 
-    if (analysisData.env_vars && analysisData.env_vars.length > 0) {
-      sections.push('Environment Configuration');
+    if (hasEnv) {
+      sections.push({ title: 'Environment Configuration', tasks: 2, why: 'Create .env from example and obtain the required secrets/keys' });
     }
-
-    if (analysisData.database && analysisData.database.length > 0) {
-      sections.push('Database Setup');
+    if (hasDb) {
+      sections.push({ title: 'Database Setup', tasks: 3, why: 'Provision the database, run migrations, and seed data' });
     }
+    if (hasDocker) {
+      sections.push({ title: 'Containerized Services', tasks: 1, why: 'Bring up auxiliary services with Docker Compose if available' });
+    }
+    sections.push({ title: 'Run the Application', tasks: 2, why: 'Start the dev server and verify the app loads' });
+    sections.push({ title: 'Verify Your Setup', tasks: 2, why: 'Run tests / smoke-check key flows to confirm everything works' });
+    sections.push({ title: 'Where to Go Next', tasks: 1, why: 'Pointers into the codebase: entry points, key files, and contribution flow' });
 
-    sections.push('Running the Application');
+    return `
+=== REQUIRED SECTIONS (intelligently ordered for THIS project) ===
+${sections.map((s, i) => `${i + 1}. ${s.title} — ${s.why} (~${s.tasks} task${s.tasks === 1 ? '' : 's'})`).join('\n')}
 
-    let guidance = `
-=== REQUIRED SECTIONS (in chronological order) ===
-${sections.map((s, i) => `${i + 1}. ${s}`).join('\n')}
-
-Follow typical development workflow:
-1. Understand what the project does
-2. Clone the repository
-3. Install dependencies
-4. Configure environment variables
-5. Set up database (if needed)
-6. Run the application
+=== ORDERING RULES ===
+- Each task within a section MUST list its prerequisites in "depends_on" using prior task IDs.
+- Tasks should progress from quick wins (1-2 min) to deeper work; never put a 30-min task before a 2-min check.
+- Skip sections that don't apply (e.g. no Database Setup if the project has no DB).
+- Aim for 12-18 total tasks across all sections — granular enough to be actionable, not so many it overwhelms.
+- Each task should take 2-15 minutes; split anything bigger.
+- The FIRST task should always be a sub-2-minute "Read the README" or "Skim the directory tree" win to build momentum.
 `;
-
-    return guidance;
   }
 
   /**
