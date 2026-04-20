@@ -19,19 +19,19 @@ export function TaskSteps({ steps }: { steps: TaskStep[] }) {
     <div className="space-y-3">
       {steps.map((step) => (
         <div key={step.order}>
-          <p className="font-medium text-white mb-1">{step.action}</p>
+          <p className="font-medium text-fg mb-1">{step.action}</p>
           <p
-            className="text-gray-400 text-sm leading-relaxed"
+            className="text-muted text-sm leading-relaxed"
             dangerouslySetInnerHTML={{
               __html: step.details
-                .replace(/\*\*(.*?)\*\*/g, '<strong class="text-pink-400">$1</strong>')
-                .replace(/`(.*?)`/g, '<code class="bg-gray-800/50 px-1.5 py-0.5 rounded text-pink-300 font-mono text-xs">$1</code>'),
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="text-accent">$1</strong>')
+                .replace(/`(.*?)`/g, '<code class="bg-surface-2 px-1.5 py-0.5 rounded text-accent font-mono text-xs">$1</code>'),
             }}
           />
 
           {/* OS-Specific Instructions */}
           {step.os_specific && (
-            <div className="mt-2 space-y-1 text-sm text-gray-400">
+            <div className="mt-2 space-y-1 text-sm text-muted">
               {step.os_specific.mac && (
                 <p><span className="font-medium">Mac:</span> {step.os_specific.mac}</p>
               )}
@@ -74,14 +74,14 @@ export function CommandBlocks({ commands }: { commands: (string | CommandBlock)[
 
         return (
           <div key={index}>
-            <p className="text-sm text-gray-400 mb-2">
+            <p className="text-sm text-muted mb-2">
               You can create the file using the following command:
             </p>
-            <pre className="bg-gray-900/70 p-4 rounded-md text-sm text-gray-300 border border-gray-700 relative group">
+            <pre className="bg-surface-2 p-4 rounded-md text-sm text-fg border border-border relative group">
               <code>{command}</code>
               <button
                 onClick={() => copyToClipboard(command, index)}
-                className="absolute top-2 right-2 text-gray-500 hover:text-pink-400 transition-colors opacity-0 group-hover:opacity-100"
+                className="absolute top-2 right-2 text-subtle hover:text-accent transition-colors opacity-0 group-hover:opacity-100"
               >
                 {copiedIndex === index ? (
                   <span className="text-xs text-green-400">✓</span>
@@ -91,7 +91,7 @@ export function CommandBlocks({ commands }: { commands: (string | CommandBlock)[
               </button>
             </pre>
             {description && (
-              <p className="text-xs text-gray-500 mt-1">{description}</p>
+              <p className="text-xs text-subtle mt-1">{description}</p>
             )}
           </div>
         );
@@ -128,13 +128,13 @@ export function CodeBlocks({ codeBlocks }: { codeBlocks: CodeBlock[] }) {
       {codeBlocks.map((block, index) => (
         <div key={index}>
           {block.explanation && (
-            <p className="text-sm text-gray-400 mb-2">{block.explanation}</p>
+            <p className="text-sm text-muted mb-2">{block.explanation}</p>
           )}
-          <pre className="bg-gray-900/70 p-4 rounded-md text-sm text-gray-300 border border-gray-700 overflow-x-auto relative group">
+          <pre className="bg-surface-2 p-4 rounded-md text-sm text-fg border border-border overflow-x-auto relative group">
             <code>{block.content}</code>
             <button
               onClick={() => copyToClipboard(block.content, index)}
-              className="absolute top-2 right-2 text-gray-500 hover:text-pink-400 transition-colors opacity-0 group-hover:opacity-100"
+              className="absolute top-2 right-2 text-subtle hover:text-accent transition-colors opacity-0 group-hover:opacity-100"
             >
               {copiedIndex === index ? (
                 <span className="text-xs text-green-400">✓</span>
@@ -144,7 +144,7 @@ export function CodeBlocks({ codeBlocks }: { codeBlocks: CodeBlock[] }) {
             </button>
           </pre>
           {block.file_path && (
-            <p className="text-xs text-gray-500 mt-1">File: {block.file_path}</p>
+            <p className="text-xs text-subtle mt-1">File: {block.file_path}</p>
           )}
         </div>
       ))}
@@ -169,7 +169,7 @@ export function ReferencesSection({ references }: { references: Reference[] }) {
           href={ref.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block text-sm text-pink-400 hover:text-pink-300 underline"
+          className="block text-sm text-accent hover:text-accent underline"
         >
           {ref.text}
         </a>
@@ -190,11 +190,11 @@ export function TipsSection({ tips }: { tips: (string | Tip)[] }) {
     let formatted = text;
     emphasis.forEach((phrase) => {
       const regex = new RegExp(`(${phrase})`, 'gi');
-      formatted = formatted.replace(regex, '<strong class="text-pink-400">$1</strong>');
+      formatted = formatted.replace(regex, '<strong class="text-accent">$1</strong>');
     });
     return formatted
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-pink-400">$1</strong>')
-      .replace(/`(.*?)`/g, '<code class="bg-gray-800/50 px-1.5 py-0.5 rounded text-pink-300 font-mono text-xs">$1</code>');
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-accent">$1</strong>')
+      .replace(/`(.*?)`/g, '<code class="bg-surface-2 px-1.5 py-0.5 rounded text-accent font-mono text-xs">$1</code>');
   };
 
   // Filter out null/undefined tips
@@ -213,7 +213,7 @@ export function TipsSection({ tips }: { tips: (string | Tip)[] }) {
         return (
           <p
             key={index}
-            className="text-sm text-gray-400 leading-relaxed"
+            className="text-sm text-muted leading-relaxed"
             dangerouslySetInnerHTML={{ __html: formatText(text, emphasis) }}
           />
         );
@@ -235,11 +235,11 @@ export function WarningsSection({ warnings }: { warnings: (string | Warning)[] }
     let formatted = text;
     emphasis.forEach((phrase) => {
       const regex = new RegExp(`(${phrase})`, 'gi');
-      formatted = formatted.replace(regex, '<strong class="text-pink-400">$1</strong>');
+      formatted = formatted.replace(regex, '<strong class="text-accent">$1</strong>');
     });
     return formatted
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-pink-400">$1</strong>')
-      .replace(/`(.*?)`/g, '<code class="bg-gray-800/50 px-1.5 py-0.5 rounded text-pink-300 font-mono text-xs">$1</code>');
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-accent">$1</strong>')
+      .replace(/`(.*?)`/g, '<code class="bg-surface-2 px-1.5 py-0.5 rounded text-accent font-mono text-xs">$1</code>');
   };
 
   // Filter out null/undefined warnings
@@ -258,7 +258,7 @@ export function WarningsSection({ warnings }: { warnings: (string | Warning)[] }
         return (
           <p
             key={index}
-            className="text-sm text-yellow-400 leading-relaxed"
+            className="text-sm text-amber-400 leading-relaxed"
             dangerouslySetInnerHTML={{ __html: formatText(text, emphasis) }}
           />
         );
@@ -296,8 +296,8 @@ export function VerificationSection({ verification }: { verification: Verificati
         <div className="flex items-center gap-3">
           <CheckCircle2 className="w-5 h-5 text-green-400" />
           <div>
-            <h3 className="font-semibold text-white text-lg">Verification</h3>
-            <p className="text-xs text-gray-400">How to check if this worked</p>
+            <h3 className="font-semibold text-fg text-lg">Verification</h3>
+            <p className="text-xs text-muted">How to check if this worked</p>
           </div>
         </div>
         <ChevronDown 
@@ -314,7 +314,7 @@ export function VerificationSection({ verification }: { verification: Verificati
               <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">
                 How to Verify
               </p>
-              <p className="text-sm text-gray-300 leading-relaxed">
+              <p className="text-sm text-fg leading-relaxed">
                 {verification.how_to_verify}
               </p>
             </div>
@@ -325,7 +325,7 @@ export function VerificationSection({ verification }: { verification: Verificati
               <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">
                 Expected Result
               </p>
-              <p className="text-sm text-gray-300 leading-relaxed bg-gray-900/50 p-3 rounded border border-gray-800">
+              <p className="text-sm text-fg leading-relaxed bg-gray-900/50 p-3 rounded border border-gray-800">
                 {verification.expected_result}
               </p>
             </div>
@@ -333,7 +333,7 @@ export function VerificationSection({ verification }: { verification: Verificati
 
           {verification.troubleshooting && verification.troubleshooting.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wide mb-2">
+              <p className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-2">
                 Common Issues
               </p>
               <div className="space-y-3">
@@ -342,11 +342,11 @@ export function VerificationSection({ verification }: { verification: Verificati
                     <p className="text-sm font-semibold text-red-300 mb-1">
                       Problem: {item.problem}
                     </p>
-                    <p className="text-sm text-gray-300 mb-2">
+                    <p className="text-sm text-fg mb-2">
                       Solution: {item.solution}
                     </p>
                     {item.command && (
-                      <pre className="text-xs font-mono text-pink-300 bg-[#0a0a0f] p-2 rounded mt-2">
+                      <pre className="text-xs font-mono text-accent bg-[#0a0a0f] p-2 rounded mt-2">
                         {item.command}
                       </pre>
                     )}
