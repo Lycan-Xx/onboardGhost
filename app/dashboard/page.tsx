@@ -258,7 +258,7 @@ function DashboardContent() {
                   </>
                 ) : (
                   <>
-                    <Github size={14} />
+                    <GithubIcon size={14} />
                     Sign in with GitHub
                   </>
                 )}
@@ -526,7 +526,7 @@ function SignInGate({
               {githubLoading ? (
                 <><Loader2 size={15} className="animate-spin" /> Redirecting to GitHub…</>
               ) : (
-                <><Github size={15} /> Continue with GitHub</>
+                <><GithubIcon size={15} /> Continue with GitHub</>
               )}
             </button>
 
