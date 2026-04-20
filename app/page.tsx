@@ -34,8 +34,8 @@ export default function LandingPage() {
               <span className="font-semibold tracking-tight">OnboardGhost</span>
             </Link>
             <nav className="hidden md:flex items-center gap-7 text-sm text-muted">
-              <a href="#how" className="hover:text-fg transition-colors">How it works</a>
-              <a href="#why" className="hover:text-fg transition-colors">Why</a>
+              <Link href="/how-it-works" className="hover:text-fg transition-colors">How it works</Link>
+              <Link href="/why" className="hover:text-fg transition-colors">Why</Link>
               <Link href="/dashboard" className="hover:text-fg transition-colors">Sign in</Link>
             </nav>
             <Link
@@ -126,8 +126,8 @@ export default function LandingPage() {
           <div className="mx-auto max-w-6xl px-5 sm:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted">
             <span>© {new Date().getFullYear()} OnboardGhost</span>
             <div className="flex items-center gap-5">
-              <a href="#" className="hover:text-fg transition-colors">Privacy</a>
-              <a href="#" className="hover:text-fg transition-colors">Terms</a>
+              <Link href="/privacy" className="hover:text-fg transition-colors">Privacy</Link>
+              <Link href="/terms" className="hover:text-fg transition-colors">Terms</Link>
               <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-fg transition-colors">
                 GitHub
               </a>
