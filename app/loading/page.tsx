@@ -3,78 +3,50 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase/config';
-
-interface AnalysisLog {
-  timestamp: Date;
-  step: number;
-  message: string;
-  details?: any;
-}
+import { db } from '@/lib/firebase/config';
+import { repoIdToDisplayName, repoIdToOwnerAvatar } from '@/lib/utils/repo';
+import { Check, Loader2, Circle, AlertCircle, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 interface AnalysisProgress {
   current_step: number;
   step_name: string;
   step_status: 'pending' | 'in-progress' | 'completed' | 'failed';
-  logs: AnalysisLog[];
-  updated_at: Date;
+  logs: any[];
+  updated_at: any;
 }
 
-interface Step {
-  name: string;
-  status: 'completed' | 'in-progress' | 'pending';
-}
+interface Step { name: string; status: 'completed' | 'in-progress' | 'pending'; }
+
+const STEP_NAMES = [
+  'Cloning repository',
+  'Parsing file structure',
+  'Analyzing dependencies',
+  'Scanning security',
+  'Generating roadmap',
+];
 
 function LoadingContent() {
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [repoName, setRepoName] = useState<string>('repository');
-  const [steps, setSteps] = useState<Step[]>([
-    { name: 'Cloning repository', status: 'pending' },
-    { name: 'Parsing file structure', status: 'pending' },
-    { name: 'Analyzing dependencies', status: 'pending' },
-    { name: 'Scanning security', status: 'pending' },
-    { name: 'Generating roadmap', status: 'pending' },
-  ]);
+  const [steps, setSteps] = useState<Step[]>(STEP_NAMES.map((n) => ({ name: n, status: 'pending' })));
   const router = useRouter();
   const searchParams = useSearchParams();
   const repoId = searchParams.get('repoId');
+  const repoName = repoIdToDisplayName(repoId);
+  const ownerAvatar = repoIdToOwnerAvatar(repoId);
 
-  // Extract repo name from repoId
-  useEffect(() => {
-    if (repoId) {
-      const parts = repoId.split('_');
-      if (parts.length >= 2) {
-        setRepoName(parts.slice(1).join('/'));
-      }
-    }
-  }, [repoId]);
-
-  // Update steps based on progress
   useEffect(() => {
     if (!progress) return;
-
-    const stepMapping: { [key: number]: number } = {
-      1: 0, // Repository Access -> Cloning
-      2: 1, // File Tree -> Parsing
-      3: 2, // Static Analysis -> Analyzing dependencies
-      4: 2, // Project Purpose -> Analyzing dependencies
-      5: 3, // Security Scan -> Scanning security
-      6: 4, // File Upload -> Generating roadmap
-      7: 4, // Roadmap Generation -> Generating roadmap
-      8: 4, // Complete -> Generating roadmap
-    };
-
-    const currentStepIndex = stepMapping[progress.current_step] || 0;
-
-    setSteps(prevSteps => prevSteps.map((step, index) => {
-      if (index < currentStepIndex) {
-        return { ...step, status: 'completed' };
-      } else if (index === currentStepIndex) {
-        return { ...step, status: progress.step_status === 'completed' ? 'completed' : 'in-progress' };
-      }
-      return { ...step, status: 'pending' };
-    }));
+    const map: { [key: number]: number } = { 1: 0, 2: 1, 3: 2, 4: 2, 5: 3, 6: 4, 7: 4, 8: 4 };
+    const idx = map[progress.current_step] || 0;
+    setSteps((prev) =>
+      prev.map((s, i) => {
+        if (i < idx) return { ...s, status: 'completed' };
+        if (i === idx) return { ...s, status: progress.step_status === 'completed' ? 'completed' : 'in-progress' };
+        return { ...s, status: 'pending' };
+      })
+    );
   }, [progress]);
 
   useEffect(() => {
@@ -83,208 +55,133 @@ function LoadingContent() {
       return;
     }
 
-    // Check if roadmap already exists (cached analysis)
-    const checkExistingRoadmap = async () => {
+    const checkExisting = async () => {
       try {
-        const response = await fetch(`/api/get-roadmap?repoId=${repoId}&userId=demo-user`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.roadmap && data.roadmap.sections) {
-            console.log('[Loading] Roadmap already exists, redirecting to tasks...');
+        const r = await fetch(`/api/get-roadmap?repoId=${repoId}&userId=demo-user`);
+        if (r.ok) {
+          const data = await r.json();
+          if (data.roadmap?.sections) {
             router.push(`/tasks?repoId=${repoId}`);
             return true;
           }
         }
-      } catch (error) {
-        console.log('[Loading] No existing roadmap, waiting for analysis...');
-      }
+      } catch {}
       return false;
     };
 
-    // Check immediately for cached results
-    checkExistingRoadmap().then((exists) => {
-      if (exists) return; // Already redirected
-
-      // Listen to real-time progress updates
-      const progressRef = doc(db, 'analysis_progress', repoId);
-      console.log('[Loading] Setting up Firestore listener for:', repoId);
-      console.log('[Loading] Firebase config:', {
-        projectId: db.app.options.projectId,
-        hasAuth: !!auth,
-      });
-      
-      const unsubscribe = onSnapshot(
-        progressRef,
-        (snapshot) => {
-          console.log('[Loading] Snapshot received:', {
-            exists: snapshot.exists(),
-            metadata: {
-              hasPendingWrites: snapshot.metadata.hasPendingWrites,
-              fromCache: snapshot.metadata.fromCache,
-            }
-          });
-
-          if (snapshot.exists()) {
-            const data = snapshot.data() as AnalysisProgress;
-            console.log('[Loading] Progress update:', {
-              step: data.current_step,
-              stepName: data.step_name,
-              status: data.step_status,
-              logsCount: data.logs?.length || 0,
-              timestamp: data.updated_at,
-            });
+    checkExisting().then((exists) => {
+      if (exists) return;
+      const ref = doc(db, 'analysis_progress', repoId);
+      const unsub = onSnapshot(
+        ref,
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data() as AnalysisProgress;
             setProgress(data);
-
-            // Check if analysis is complete
             if (data.step_status === 'completed' && data.current_step === 8) {
-              console.log('[Loading] Analysis complete! Redirecting to tasks...');
-              setTimeout(() => {
-                router.push(`/tasks?repoId=${repoId}`);
-              }, 2000);
+              setTimeout(() => router.push(`/tasks?repoId=${repoId}`), 1500);
             } else if (data.step_status === 'failed') {
-              console.error('[Loading] Analysis failed');
               setError('Analysis failed. Please try again.');
             }
           } else {
-            console.log('[Loading] Progress document does not exist yet, waiting...');
-            // No progress document - might be cached, check again
-            setTimeout(() => checkExistingRoadmap(), 3000);
+            setTimeout(() => checkExisting(), 3000);
           }
         },
-        (error) => {
-          console.error('[Loading] Error listening to progress:', error);
-          // Try checking for existing roadmap as fallback
-          checkExistingRoadmap();
-        }
+        () => checkExisting()
       );
-
-      return () => {
-        console.log('[Loading] Cleaning up Firestore listener');
-        unsubscribe();
-      };
+      return () => unsub();
     });
   }, [repoId, router]);
 
-  const getProgressPercentage = () => {
-    if (!progress) return 0;
-    return Math.round((progress.current_step / 8) * 100);
-  };
-
-  const handleCancel = () => {
-    if (confirm('Are you sure you want to cancel this analysis?')) {
-      router.push('/dashboard');
-    }
-  };
+  const pct = progress ? Math.round((progress.current_step / 8) * 100) : 0;
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center justify-center bg-[#0a0a0f] p-4 sm:p-6 md:p-8">
-      <div className="w-full max-w-2xl flex flex-col items-center gap-8">
-        
-        {/* Ghost Animation/Icon */}
-        <div className="w-full max-w-xs">
-          <div className="flex items-center justify-center">
-            <div className="relative">
-              <span className="material-symbols-outlined text-pink-500 animate-pulse" style={{ fontSize: '120px' }}>
-                psychology
-              </span>
-              <div className="absolute inset-0 bg-pink-500/20 blur-3xl rounded-full"></div>
-            </div>
-          </div>
+    <div className="relative min-h-screen bg-bg text-fg flex flex-col">
+      <div className="absolute inset-0 grid-canvas opacity-40 pointer-events-none" />
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_50%_100%,rgba(242,84,91,0.08),transparent_60%)]" />
+
+      <header className="relative z-10 border-b border-border">
+        <div className="mx-auto max-w-3xl px-5 sm:px-8 h-14 flex items-center justify-between">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm text-muted hover:text-fg transition-colors">
+            <ArrowLeft size={14} /> Dashboard
+          </Link>
+          <span className="text-xs text-subtle">Analyzing</span>
         </div>
+      </header>
 
-        {/* Headline */}
-        <h1 className="text-white text-2xl sm:text-3xl font-bold leading-tight text-center">
-          Analyzing {repoName}...
-        </h1>
-
-        {error ? (
-          <div className="w-full bg-red-900/20 border border-red-500/50 rounded-lg p-6 text-center">
-            <p className="text-red-300 font-semibold mb-2">Analysis Failed</p>
-            <p className="text-red-400 text-sm mb-4">{error}</p>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-            >
-              Back to Dashboard
-            </button>
+      <main className="relative z-10 flex-1 flex items-center justify-center px-5 py-12">
+        <div className="w-full max-w-lg">
+          {/* Repo header */}
+          <div className="flex items-center gap-3 mb-8">
+            {ownerAvatar && (
+              <img
+                src={ownerAvatar}
+                alt=""
+                className="w-12 h-12 rounded-lg border border-border"
+                onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+              />
+            )}
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-wider text-subtle">Analyzing</p>
+              <h1 className="font-serif text-2xl truncate">{repoName}</h1>
+            </div>
           </div>
-        ) : (
-          <>
-            {/* Progress Bar */}
-            <div className="flex w-full flex-col gap-3">
-              <div className="flex gap-6 justify-between">
-                <p className="text-gray-300 text-base font-medium">Overall Progress</p>
-                <p className="text-white text-sm font-normal">{getProgressPercentage()}%</p>
-              </div>
-              <div className="rounded-full bg-gray-800/50">
-                <div 
-                  className="h-2 rounded-full bg-pink-500 transition-all duration-500 ease-out"
-                  style={{ width: `${getProgressPercentage()}%` }}
-                />
-              </div>
-            </div>
 
-            {/* Steps List */}
-            <div className="flex w-full flex-col gap-2">
-              <h4 className="text-gray-400 text-sm font-bold px-4 py-2 text-center">
-                Current Steps
-              </h4>
-
-              {steps.map((step, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center gap-4 px-4 min-h-14 rounded-lg transition-all ${
-                    step.status === 'in-progress' 
-                      ? 'bg-pink-500/10 border border-pink-500/20' 
-                      : 'bg-transparent'
-                  }`}
-                >
-                  <div className="flex items-center gap-4 flex-1">
-                    {/* Icon */}
-                    <div className={`flex items-center justify-center shrink-0 w-10 h-10 ${
-                      step.status === 'completed' ? 'text-pink-500' :
-                      step.status === 'in-progress' ? 'text-pink-500' :
-                      'text-gray-500'
-                    }`}>
-                      {step.status === 'completed' && (
-                        <span className="material-symbols-outlined text-2xl">check_circle</span>
-                      )}
-                      {step.status === 'in-progress' && (
-                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-pink-500 border-t-transparent"></div>
-                      )}
-                      {step.status === 'pending' && (
-                        <span className="material-symbols-outlined text-2xl">hourglass_empty</span>
-                      )}
-                    </div>
-
-                    {/* Step Name */}
-                    <p className={`text-base font-normal flex-1 ${
-                      step.status === 'in-progress' ? 'text-white' :
-                      step.status === 'completed' ? 'text-gray-400' :
-                      'text-gray-500'
-                    }`}>
-                      {step.name}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Helper Text & Cancel Button */}
-            <div className="flex flex-col items-center gap-6 pt-6">
-              <p className="text-gray-400 text-sm text-center">
-                This usually takes 2-5 minutes... Feel free to grab a coffee ☕
-              </p>
+          {error ? (
+            <div className="rounded-xl border border-accent/30 bg-accent-soft p-6 text-center">
+              <AlertCircle size={20} className="mx-auto text-accent mb-3" />
+              <p className="text-sm text-fg mb-1 font-medium">Analysis failed</p>
+              <p className="text-sm text-muted mb-5">{error}</p>
               <button
-                onClick={handleCancel}
-                className="flex items-center justify-center gap-2 px-6 py-3 text-base font-medium text-gray-400 hover:text-white transition-colors"
+                onClick={() => router.push('/dashboard')}
+                className="inline-flex items-center gap-1.5 rounded-full bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent-hover transition-colors"
               >
-                Cancel Analysis
+                Back to dashboard
               </button>
             </div>
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              {/* Progress bar */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between text-xs text-muted mb-2">
+                  <span>{progress?.step_name || 'Starting…'}</span>
+                  <span>{pct}%</span>
+                </div>
+                <div className="relative h-1 rounded-full bg-surface-2 overflow-hidden">
+                  <div className="absolute inset-y-0 left-0 bg-accent transition-all duration-500" style={{ width: `${pct}%` }} />
+                  {pct < 100 && <div className="absolute inset-0 shimmer opacity-60" />}
+                </div>
+              </div>
+
+              {/* Steps timeline */}
+              <ol className="relative space-y-1">
+                <div className="absolute left-[11px] top-3 bottom-3 w-px bg-border" />
+                {steps.map((step, i) => (
+                  <li key={i} className="relative flex items-center gap-4 py-2.5 pl-0">
+                    <div className={`relative z-10 w-6 h-6 rounded-full grid place-items-center shrink-0 ${
+                      step.status === 'completed' ? 'bg-accent text-white' :
+                      step.status === 'in-progress' ? 'bg-accent-soft border border-accent' :
+                      'bg-surface border border-border'
+                    }`}>
+                      {step.status === 'completed' ? <Check size={12} strokeWidth={3} /> :
+                       step.status === 'in-progress' ? <Loader2 size={11} className="animate-spin text-accent" /> :
+                       <Circle size={6} className="text-subtle fill-current" />}
+                    </div>
+                    <span className={`text-sm ${
+                      step.status === 'in-progress' ? 'text-fg font-medium' :
+                      step.status === 'completed' ? 'text-muted' : 'text-subtle'
+                    }`}>{step.name}</span>
+                  </li>
+                ))}
+              </ol>
+
+              <p className="mt-10 text-xs text-subtle text-center">
+                This usually takes about 30 seconds — feel free to keep this tab open.
+              </p>
+            </>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
@@ -292,11 +189,8 @@ function LoadingContent() {
 export default function Loading() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500 mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading analysis...</p>
-        </div>
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <Loader2 className="animate-spin text-accent" size={24} />
       </div>
     }>
       <LoadingContent />

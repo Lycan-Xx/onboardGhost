@@ -1,14 +1,15 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { 
+import {
   User,
   signInAnonymously,
   onAuthStateChanged,
-  signOut as firebaseSignOut
+  signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/config';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface GitHubUser {
   username: string;
@@ -22,7 +23,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   hasGitHubToken: boolean;
   githubUser: GitHubUser | null;
+  githubLoading: boolean;
+  googleLoading: boolean;
   signInAnonymous: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   initiateGitHubAuth: () => void;
   checkGitHubToken: () => Promise<boolean>;
@@ -35,36 +39,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [hasGitHubToken, setHasGitHubToken] = useState(false);
   const [githubUser, setGithubUser] = useState<GitHubUser | null>(null);
+  const [githubLoading, setGithubLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const checkGitHubToken = async (userId: string): Promise<boolean> => {
-    console.log('[AuthContext] Checking GitHub token for user:', userId);
-    
     try {
-      // Add retry logic for production - sometimes Firestore has replication lag
       for (let attempt = 1; attempt <= 3; attempt++) {
         const response = await fetch(`/api/auth/check-github?userId=${userId}`);
         const data = await response.json();
-        
-        console.log(`[AuthContext] GitHub token check result (attempt ${attempt}):`, data);
-        
         setHasGitHubToken(data.hasToken || false);
-        
         if (data.hasToken) {
-          if (data.githubUser) {
-            console.log('[AuthContext] GitHub user found:', data.githubUser);
-            setGithubUser(data.githubUser);
-          }
+          if (data.githubUser) setGithubUser(data.githubUser);
           return true;
         }
-        
-        // If token not found and this isn't the last attempt, wait before retrying
-        if (attempt < 3) {
-          console.log('[AuthContext] Token not found, retrying in 1 second...');
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      
-      console.log('[AuthContext] No GitHub token found after retries');
       setGithubUser(null);
       return false;
     } catch (error) {
@@ -77,37 +66,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!auth) {
-      console.error('Firebase Auth is not initialized');
       setLoading(false);
       return;
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('[AuthContext] Auth state changed:', firebaseUser?.uid || 'no user');
       setUser(firebaseUser);
-      
       if (firebaseUser) {
-        // Check if user has GitHub token
         await checkGitHubToken(firebaseUser.uid);
       } else {
         setHasGitHubToken(false);
         setGithubUser(null);
       }
-      
       setLoading(false);
     });
 
-    // Also check GitHub token after page loads to handle OAuth callback redirects
-    const timer = setTimeout(() => {
-      if (user) {
-        checkGitHubToken(user.uid);
-      }
-    }, 2000);
-
-    return () => {
-      unsubscribe();
-      clearTimeout(timer);
-    };
+    return () => unsubscribe();
   }, []);
 
   const signInAnonymous = async () => {
@@ -116,14 +90,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(result.user);
     } catch (error: any) {
       console.error('Anonymous sign-in error:', error);
-      
-      // Check if anonymous auth is disabled
-      if (error?.code === 'auth/operation-not-allowed') {
-        console.error('Anonymous authentication is not enabled in Firebase Console.');
-        console.error('Please enable it: Firebase Console > Authentication > Sign-in method > Anonymous');
-      }
-      
       throw error;
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      setGoogleLoading(true);
+      const provider = new GoogleAuthProvider();
+      // Always show account picker / consent — fixes silent auto-login complaint
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, provider);
+      setUser(result.user);
+    } catch (error: any) {
+      console.error('Google sign-in error:', error);
+      throw error;
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -132,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await firebaseSignOut(auth);
       setUser(null);
       setHasGitHubToken(false);
+      setGithubUser(null);
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -140,23 +124,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const initiateGitHubAuth = async () => {
     try {
-      // If no user, sign in anonymously first
+      setGithubLoading(true);
       if (!user) {
         const result = await signInAnonymously(auth);
-        // Redirect to GitHub OAuth with the new user
         window.location.href = `/api/auth/github?userId=${result.user.uid}`;
         return;
       }
-      
-      // Redirect to GitHub OAuth
       window.location.href = `/api/auth/github?userId=${user.uid}`;
     } catch (error) {
+      setGithubLoading(false);
       console.error('Failed to initiate GitHub auth:', error);
       throw error;
     }
   };
-
-
 
   const value = {
     user,
@@ -164,7 +144,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user,
     hasGitHubToken,
     githubUser,
+    githubLoading,
+    googleLoading,
     signInAnonymous,
+    signInWithGoogle,
     signOut,
     initiateGitHubAuth,
     checkGitHubToken: () => user ? checkGitHubToken(user.uid) : Promise.resolve(false),
