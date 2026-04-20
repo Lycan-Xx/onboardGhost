@@ -11,22 +11,28 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Validate configuration
+// During Next.js static prerender (e.g. /_not-found) env vars may be absent.
+// Avoid throwing — supply a placeholder so initializeApp doesn't crash the build.
+// At runtime in the browser, the real env vars are present.
+const safeConfig = {
+  ...firebaseConfig,
+  apiKey: firebaseConfig.apiKey || 'build-time-placeholder',
+  authDomain: firebaseConfig.authDomain || 'placeholder.firebaseapp.com',
+  projectId: firebaseConfig.projectId || 'placeholder',
+  appId: firebaseConfig.appId || '1:000000000000:web:0000000000000000000000',
+};
+
 if (typeof window !== 'undefined') {
-  const requiredFields = ['apiKey', 'authDomain', 'projectId', 'appId'];
-  const missingFields = requiredFields.filter(field => !firebaseConfig[field as keyof typeof firebaseConfig]);
-  
-  if (missingFields.length > 0) {
-    console.error('Missing Firebase configuration fields:', missingFields);
-    console.error('Please check your .env.local file');
+  const required = ['apiKey', 'authDomain', 'projectId', 'appId'] as const;
+  const missing = required.filter((f) => !firebaseConfig[f]);
+  if (missing.length > 0) {
+    console.warn('[Firebase] Missing config fields at runtime:', missing);
   }
 }
 
-// Initialize Firebase - always initialize, not just on client
 let app: FirebaseApp;
-
 if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
+  app = initializeApp(safeConfig);
 } else {
   app = getApps()[0];
 }
